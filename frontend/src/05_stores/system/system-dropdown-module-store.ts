@@ -1,0 +1,84 @@
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import type { PaginationParams } from '@/04_types/_common/pagination';
+import type { SystemDropdownModule } from '@/04_types/system/system-dropdown-module';
+
+type SystemDropdownModuleStoreProps = {
+  selectedSystemDropdownModule: SystemDropdownModule | null;
+  setSelectedSystemDropdownModule: (
+    systemDropdownModule: SystemDropdownModule | null,
+  ) => void;
+
+  pagination: PaginationParams;
+  setPagination: (data: Partial<PaginationParams>) => void;
+
+  view: 'list' | 'grid';
+  setView: (view: 'list' | 'grid') => void;
+};
+
+const defaultPagination: PaginationParams = {
+  limit: '15',
+  page: 1,
+  sort: 'label',
+  searchTerm: '',
+};
+
+const useSystemDropdownModuleStore = create<SystemDropdownModuleStoreProps>()(
+  persist(
+    set => ({
+      selectedSystemDropdownModule: null,
+      setSelectedSystemDropdownModule: systemDropdownModule =>
+        set({ selectedSystemDropdownModule: systemDropdownModule }),
+
+      pagination: defaultPagination,
+
+      setPagination: data =>
+        set(state => ({
+          pagination: { ...state.pagination, ...data },
+        })),
+
+      view: 'list',
+      setView: view => set({ view }),
+    }),
+    {
+      name: 'system-dropdown-module-preferences',
+      storage: createJSONStorage(() => localStorage),
+      partialize: state => ({
+        view: state.view,
+        pagination: {
+          limit: state.pagination.limit,
+        },
+      }),
+      merge: (persistedState, currentState) => {
+        // Start with current state (defaults)
+        const merged = { ...currentState };
+
+        // Only override persisted values
+        if (persistedState && typeof persistedState === 'object') {
+          if ('view' in persistedState && persistedState.view) {
+            merged.view = persistedState.view as 'list' | 'grid';
+          }
+
+          if ('pagination' in persistedState && persistedState.pagination) {
+            const persistedPagination =
+              persistedState.pagination as Partial<PaginationParams>;
+            merged.pagination = {
+              // Start with defaults
+              ...merged.pagination,
+              // Apply only persisted fields (limit)
+              ...persistedPagination,
+              // Explicitly reset non-persisted fields to defaults
+              page: defaultPagination.page,
+              sort: defaultPagination.sort,
+              searchTerm: defaultPagination.searchTerm,
+            };
+          }
+        }
+
+        return merged;
+      },
+    },
+  ),
+);
+
+export default useSystemDropdownModuleStore;

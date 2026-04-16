@@ -18,6 +18,7 @@ import ReactQuillPage from './01_pages/private/examples/forms/react-quill-page';
 import ReactSelectPage from './01_pages/private/examples/forms/react-select-page';
 import SystemDropdownPage from './01_pages/private/examples/forms/system-dropdown-page';
 import TextareaPage from './01_pages/private/examples/forms/textarea-page';
+import ChatPage from './01_pages/private/home/chat/chat-page';
 import RagFilesPage from './01_pages/private/home/rag-files/rag-files-page';
 import LoginPage from './01_pages/public/login-page';
 import AdminLayout from './02_layouts/private/admin-layout';
@@ -56,7 +57,7 @@ const App = () => {
           children: [
             {
               path: '/',
-              element: <h1>Home</h1>,
+              element: <ChatPage />,
             },
             {
               path: '/rag-files',

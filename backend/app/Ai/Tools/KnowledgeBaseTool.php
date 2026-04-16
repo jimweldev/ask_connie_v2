@@ -23,35 +23,57 @@ class KnowledgeBaseTool implements Tool {
     public function handle(Request $request): Stringable|string {
         $query = $request['query'];
 
-        // Generate embeddings for the query
         $queryVector = AiHelper::generateEmbeddings($query);
 
-        // Build the query with similarity search
-        $queryBuilder = RagFileChunk::query()
-            // Only bring back chunks that are actually relevant (threshold)
-            ->whereVectorSimilarTo('embedding', $queryVector, 0.5)
-            ->orWhere('content', 'LIKE', "%{$query}%") // Simple keyword fallback
-            ->with('ragFile');
+        // STEP 1: get candidates via vector search ONLY
+        $candidates = RagFileChunk::query()
+            ->whereNotNull('embedding')
+            ->whereVectorSimilarTo('embedding', $queryVector, 0.3)
+            ->with('ragFile')
+            ->limit(20) // get more for reranking
+            ->get();
 
-        // Execute the query
-        $results = $queryBuilder->limit(5)->get();
-
-        if ($results->isEmpty()) {
+        if ($candidates->isEmpty()) {
             return 'No relevant information found in the knowledge base.';
         }
 
-        // Format results for the agent
-        $formattedResults = "Here are the relevant documents from the knowledge base:\n\n";
+        // STEP 2: simple reranking (lexical boost)
+        $queryTerms = explode(' ', strtolower($query));
 
-        foreach ($results as $result) {
-            $formattedResults .= sprintf(
-                "Document: %s\nContent: %s\n---\n",
-                $result->ragFile->title,
-                $result->content
+        $scored = $candidates->map(function ($chunk) use ($queryTerms) {
+            $content = strtolower($chunk->content);
+
+            $keywordScore = 0;
+            foreach ($queryTerms as $term) {
+                if (str_contains($content, $term)) {
+                    $keywordScore++;
+                }
+            }
+
+            return [
+                'chunk' => $chunk,
+                'score' => $keywordScore,
+            ];
+        });
+
+        // STEP 3: sort by combined score
+        $topChunks = $scored
+            ->sortByDesc('score')
+            ->take(5)
+            ->pluck('chunk');
+
+        // STEP 4: build clean context
+        $context = "Knowledge Base Results:\n\n";
+
+        foreach ($topChunks as $chunk) {
+            $context .= sprintf(
+                "[%s]\n%s\n\n",
+                $chunk->ragFile->title,
+                $chunk->content
             );
         }
 
-        return $formattedResults;
+        return $context;
     }
 
     /**

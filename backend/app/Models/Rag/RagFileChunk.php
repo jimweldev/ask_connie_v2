@@ -13,6 +13,7 @@ class RagFileChunk extends Model {
 
     protected $casts = [
         'embedding' => 'array',
+        'meta' => 'array',
     ];
 
     public function ragFile() {

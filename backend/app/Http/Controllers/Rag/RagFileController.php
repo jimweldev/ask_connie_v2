@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Rag;
 use App\Ai\Agents\MegaToolAgent;
 use App\Helpers\DynamicLogger;
 use App\Helpers\QueryHelper;
+use App\Helpers\RagChunker;
 use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Jobs\Rag\EmbedRagFileChunk;
@@ -13,6 +14,7 @@ use App\Models\Rag\RagFile;
 use App\Models\Rag\RagFileChunk;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class RagFileController extends Controller {
     private $logger;
@@ -94,34 +96,27 @@ class RagFileController extends Controller {
                 'file_path' => $filePath,
             ]);
 
-            $allowedLocations = json_decode($request->allowed_locations, true);
-            $allowedPositions = json_decode($request->allowed_positions, true);
-            $allowedWebsites = json_decode($request->allowed_websites, true);
-
-            $request['allowed_locations'] = empty($allowedLocations) ? null : $allowedLocations;
-            $request['allowed_positions'] = empty($allowedPositions) ? null : $allowedPositions;
-            $request['allowed_websites'] = empty($allowedWebsites) ? null : $allowedWebsites;
-
             $record = RagFile::create($request->all());
 
             $extractedText = StorageHelper::extractFileContent($record->file_path);
 
-            $chunks = array_filter(preg_split('/\s+/', $extractedText));
-            $chunkSize = 500;
-            $chunkIndex = 0;
+            $chunks = RagChunker::chunkText($extractedText);
+
             $createdChunkIds = [];
 
-            for ($i = 0; $i < count($chunks); $i += $chunkSize) {
-                $chunkContent = implode(' ', array_slice($chunks, $i, $chunkSize));
-
+            foreach ($chunks as $index => $chunkContent) {
                 $chunk = RagFileChunk::create([
                     'rag_file_id' => $record->id,
-                    'chunk_index' => $chunkIndex,
+                    'chunk_index' => $index,
                     'content' => $chunkContent,
+                    'token_count' => str_word_count($chunkContent),
+                    'meta' => json_encode([
+                        'source' => $record->title,
+                        'chunk' => $index,
+                    ]),
                 ]);
 
                 $createdChunkIds[] = $chunk->id;
-                $chunkIndex++;
             }
 
             // Dispatch embedding jobs after commit
@@ -169,36 +164,29 @@ class RagFileController extends Controller {
                 ]);
             }
 
-            $allowedLocations = json_decode($request->allowed_locations, true);
-            $allowedPositions = json_decode($request->allowed_positions, true);
-            $allowedWebsites = json_decode($request->allowed_websites, true);
-
-            $request['allowed_locations'] = empty($allowedLocations) ? null : $allowedLocations;
-            $request['allowed_positions'] = empty($allowedPositions) ? null : $allowedPositions;
-            $request['allowed_websites'] = empty($allowedWebsites) ? null : $allowedWebsites;
-
             $record->update($request->all());
 
             // if has file
             if ($request->hasFile('file')) {
                 $extractedText = StorageHelper::extractFileContent($record->file_path);
 
-                $chunks = array_filter(preg_split('/\s+/', $extractedText));
-                $chunkSize = 500;
-                $chunkIndex = 0;
+                $chunks = RagChunker::chunkText($extractedText);
+
                 $createdChunkIds = [];
 
-                for ($i = 0; $i < count($chunks); $i += $chunkSize) {
-                    $chunkContent = implode(' ', array_slice($chunks, $i, $chunkSize));
-
+                foreach ($chunks as $index => $chunkContent) {
                     $chunk = RagFileChunk::create([
                         'rag_file_id' => $record->id,
-                        'chunk_index' => $chunkIndex,
+                        'chunk_index' => $index,
                         'content' => $chunkContent,
+                        'token_count' => str_word_count($chunkContent),
+                        'meta' => json_encode([
+                            'source' => $record->title,
+                            'chunk' => $index,
+                        ]),
                     ]);
 
                     $createdChunkIds[] = $chunk->id;
-                    $chunkIndex++;
                 }
 
                 // Dispatch embedding jobs after commit
@@ -249,59 +237,60 @@ class RagFileController extends Controller {
      * @bodyParam message string required The user's message/question
      * @bodyParam conversation_id string Optional conversation ID to continue an existing conversation
      */
-    public function chat(Request $request) {
+    public function chat(Request $request)
+    {
         $externalId = $request->input('user_id') ?? '0';
         $appSource = $request->input('app_source') ?? 'default';
         $userInput = $request->input('message');
-        $chatId = $request->input('chat_id'); // Only provided if continuing an existing chat
+        $chatId = $request->input('chat_id');
 
-        // 1. Determine if this is a new or existing chat
+        if (!$userInput) {
+            return response()->json(['error' => 'Message is required'], 400);
+        }
+
         if ($chatId) {
-            // CONTINUING EXISTING CHAT: Find the specific chat
             $chat = Chat::find($chatId);
 
             if (!$chat) {
-                return response()->json([
-                    'error' => 'Chat not found',
-                    'chat_id' => $chatId,
-                ], 404);
-            }
-
-            // Optional: Verify this chat belongs to the user
-            if ($chat->external_user_id !== $externalId) {
-                return response()->json([
-                    'error' => 'Unauthorized access to this chat',
-                ], 403);
+                return response()->json(['error' => 'Chat not found'], 404);
             }
         } else {
-            // NEW CHAT: Always create a fresh chat
             $chat = Chat::create([
                 'external_user_id' => $externalId,
                 'app_source' => $appSource,
-                'title' => substr($userInput, 0, 50), // Set title from first message
+                'title' => substr($userInput, 0, 50),
             ]);
         }
 
-        // 2. Save the User message
         $chat->messages()->create([
             'role' => 'user',
             'content' => $userInput,
         ]);
 
-        // 3. Create agent with chat context and prompt
-        $agent = new MegaToolAgent($chat);
-        $response = $agent->prompt($userInput);
+        try {
+            $agent = new MegaToolAgent($chat);
 
-        // 4. Save the AI response
+            $response = $agent->prompt($userInput);
+
+            $final = trim((string) $response);
+
+            if ($final === '') {
+                $final = "I'm sorry, I didn't get that. Could you rephrase your request?";
+            }
+
+        } catch (\Throwable $e) {
+            Log::error('AI ERROR', ['error' => $e->getMessage()]);
+            $final = '⚠️ Something went wrong. Please try again.';
+        }
+
         $chat->messages()->create([
             'role' => 'assistant',
-            'content' => (string) $response,
+            'content' => $final,
         ]);
 
         return response()->json([
             'chat_id' => $chat->id,
-            'response' => (string) $response,
-            'message_count' => $chat->messages()->count(),
+            'response' => $final,
         ]);
     }
 }

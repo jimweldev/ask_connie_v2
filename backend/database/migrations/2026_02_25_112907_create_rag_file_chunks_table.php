@@ -12,11 +12,19 @@ return new class extends Migration {
         Schema::create('rag_file_chunks', function (Blueprint $table) {
             $table->id();
             $table->foreignId('rag_file_id')->constrained('rag_files')->onDelete('cascade');
+
             $table->integer('chunk_index');
+
+            // NEW: metadata
+            $table->integer('token_count')->nullable();
+            $table->string('section')->nullable(); // optional: headings
+            $table->json('meta')->nullable(); // flexible metadata
+
             $table->text('content');
+
             $table->vector('embedding', 768)->nullable()->index();
-            $table->timestamp('created_at')->useCurrent();
-            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();
+
+            $table->timestamps();
         });
     }
 

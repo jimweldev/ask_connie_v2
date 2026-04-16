@@ -2,7 +2,9 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Tools\ItHelpdeskSupportTool;
 use App\Ai\Tools\KnowledgeBaseTool;
+use App\Ai\Tools\MegaToolSupportTool;
 use App\Models\Chat\Chat;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;

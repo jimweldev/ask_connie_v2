@@ -8,10 +8,10 @@ use App\Helpers\QueryHelper;
 use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Jobs\Rag\EmbedRagFileChunk;
-use App\Models\Agent\AgentConversation;
+use App\Models\Chat\Chat;
 use App\Models\Rag\RagFile;
 use App\Models\Rag\RagFileChunk;
-use App\Models\User\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class RagFileController extends Controller {
@@ -243,172 +243,65 @@ class RagFileController extends Controller {
 
     /**
      * Chat with the RAG knowledge base.
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     * 
+     *
+     * @return JsonResponse
+     *
      * @bodyParam message string required The user's message/question
      * @bodyParam conversation_id string Optional conversation ID to continue an existing conversation
      */
     public function chat(Request $request) {
-        try {
-            $userId = 1;
+        $externalId = $request->input('user_id') ?? '0';
+        $appSource = $request->input('app_source') ?? 'default';
+        $userInput = $request->input('message');
+        $chatId = $request->input('chat_id'); // Only provided if continuing an existing chat
 
-            $request->validate([
-                'message' => 'required|string',
-                'conversation_id' => 'nullable|string',
-            ]);
+        // 1. Determine if this is a new or existing chat
+        if ($chatId) {
+            // CONTINUING EXISTING CHAT: Find the specific chat
+            $chat = Chat::find($chatId);
 
-            $message = $request->input('message');
-            $conversationId = $request->input('conversation_id');
-            $user = User::find($userId);
-
-            // Create agent instance
-            $agent = new MegaToolAgent();
-
-            // If we have a user, associate the conversation with them
-            if ($user) {
-                $agent = $agent->forUser($user);
-            }
-
-            // Continue existing conversation or start new one
-            if ($conversationId) {
-                $agent = $agent->continue($conversationId, as: $user);
-            }
-
-            // Prompt the agent with the user's message
-            $response = $agent->prompt($message);
-
-            return response()->json([
-                'success' => true,
-                'response' => (string) $response,
-                'conversation_id' => $response->conversationId,
-                'usage' => $response->usage ?? null,
-            ], 200);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $e->errors(),
-            ], 422);
-        } catch (\Exception $e) {
-            $this->logger->error('Chat error: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while processing your request',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Get conversation history for a user.
-     * 
-     * @param Request $request
-     * @param string|null $conversationId
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function getConversations(Request $request, $conversationId = null) {
-        try {
-            $userId = 1;
-            $user = User::find($userId);
-
-            if (!$user) {
+            if (!$chat) {
                 return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated',
-                ], 401);
-            }
-
-            // If conversation ID is provided, get specific conversation messages
-            if ($conversationId) {
-                $conversation = AgentConversation::with('messages')
-                    ->where('id', $conversationId)
-                    ->where('user_id', $user->id)
-                    ->first();
-
-                if (!$conversation) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Conversation not found',
-                    ], 404);
-                }
-
-                return response()->json([
-                    'success' => true,
-                    'conversation' => $conversation,
-                    'messages' => $conversation->messages,
-                ], 200);
-            }
-
-            // Otherwise, get all conversations for the user
-            $conversations = AgentConversation::where('user_id', $user->id)
-                ->orderBy('updated_at', 'desc')
-                ->get();
-
-            return response()->json([
-                'success' => true,
-                'conversations' => $conversations,
-            ], 200);
-
-        } catch (\Exception $e) {
-            $this->logger->error('Get conversations error: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Delete a conversation.
-     * 
-     * @param Request $request
-     * @param string $conversationId
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function deleteConversation(Request $request, $conversationId) {
-        try {
-            $userId = 1;
-            $user = User::find($userId);
-
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated',
-                ], 401);
-            }
-
-            $conversation = AgentConversation::where('id', $conversationId)
-                ->where('user_id', $userId)
-                ->first();
-
-            if (!$conversation) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Conversation not found',
+                    'error' => 'Chat not found',
+                    'chat_id' => $chatId,
                 ], 404);
             }
 
-            $conversation->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Conversation deleted successfully',
-            ], 200);
-
-        } catch (\Exception $e) {
-            $this->logger->error('Delete conversation error: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred',
-                'error' => $e->getMessage(),
-            ], 500);
+            // Optional: Verify this chat belongs to the user
+            if ($chat->external_user_id !== $externalId) {
+                return response()->json([
+                    'error' => 'Unauthorized access to this chat',
+                ], 403);
+            }
+        } else {
+            // NEW CHAT: Always create a fresh chat
+            $chat = Chat::create([
+                'external_user_id' => $externalId,
+                'app_source' => $appSource,
+                'title' => substr($userInput, 0, 50), // Set title from first message
+            ]);
         }
+
+        // 2. Save the User message
+        $chat->messages()->create([
+            'role' => 'user',
+            'content' => $userInput,
+        ]);
+
+        // 3. Create agent with chat context and prompt
+        $agent = new MegaToolAgent($chat);
+        $response = $agent->prompt($userInput);
+
+        // 4. Save the AI response
+        $chat->messages()->create([
+            'role' => 'assistant',
+            'content' => (string) $response,
+        ]);
+
+        return response()->json([
+            'chat_id' => $chat->id,
+            'response' => (string) $response,
+            'message_count' => $chat->messages()->count(),
+        ]);
     }
 }

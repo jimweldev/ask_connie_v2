@@ -9,8 +9,7 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
-class KnowledgeBaseTool implements Tool
-{
+class KnowledgeBaseTool implements Tool {
     /**
      * Get the description of the tool's purpose.
      */
@@ -29,7 +28,9 @@ class KnowledgeBaseTool implements Tool
 
         // Build the query with similarity search
         $queryBuilder = RagFileChunk::query()
-            ->whereVectorSimilarTo('embedding', $queryVector, 0.3)
+            // Only bring back chunks that are actually relevant (threshold)
+            ->whereVectorSimilarTo('embedding', $queryVector, 0.5)
+            ->orWhere('content', 'LIKE', "%{$query}%") // Simple keyword fallback
             ->with('ragFile');
 
         // Execute the query
@@ -41,7 +42,7 @@ class KnowledgeBaseTool implements Tool
 
         // Format results for the agent
         $formattedResults = "Here are the relevant documents from the knowledge base:\n\n";
-        
+
         foreach ($results as $result) {
             $formattedResults .= sprintf(
                 "Document: %s\nContent: %s\n---\n",
@@ -56,8 +57,7 @@ class KnowledgeBaseTool implements Tool
     /**
      * Get the tool's schema definition.
      */
-    public function schema(JsonSchema $schema): array
-    {
+    public function schema(JsonSchema $schema): array {
         return [
             'query' => $schema->string()
                 ->description('The search query to look up in the knowledge base')

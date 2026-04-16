@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Example;
 
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use App\Http\Controllers\Controller;
-use App\Models\Example\ExampleTask;
 use App\Helpers\DynamicLogger;
 use App\Helpers\QueryHelper;
+use App\Http\Controllers\Controller;
+use App\Models\Example\ExampleTask;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Class ExampleTaskController

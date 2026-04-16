@@ -5,8 +5,10 @@ namespace App\Helpers;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use PhpOffice\PhpWord\Element\Table;
 use PhpOffice\PhpWord\Element\Text;
 use PhpOffice\PhpWord\Element\TextRun;
+use PhpOffice\PhpWord\IOFactory;
 use Smalot\PdfParser\Parser as PdfParser;
 
 class StorageHelper {
@@ -38,8 +40,8 @@ class StorageHelper {
 
     /**
      * Delete a file from storage
-     * 
-     * @param string $filePath The path of the file to delete (e.g., '/ask_connie/avatars/uuid.jpg')
+     *
+     * @param  string  $filePath  The path of the file to delete (e.g., '/ask_connie/avatars/uuid.jpg')
      * @return bool True if deleted successfully, false otherwise
      */
     public static function deleteFile($filePath) {
@@ -50,12 +52,12 @@ class StorageHelper {
         try {
             // Remove leading slash if present
             $path = ltrim($filePath, '/');
-            
+
             // Check if file exists before deleting
             if (Storage::disk('s3')->exists($path)) {
                 return Storage::disk('s3')->delete($path);
             }
-            
+
             return false;
         } catch (\Throwable $e) {
             return false;
@@ -81,7 +83,7 @@ class StorageHelper {
                 $tempPath = tempnam(sys_get_temp_dir(), 'docx_');
                 file_put_contents($tempPath, $disk->get($filePath));
 
-                $phpWord = \PhpOffice\PhpWord\IOFactory::load($tempPath);
+                $phpWord = IOFactory::load($tempPath);
                 unlink($tempPath);
 
                 $text = '';
@@ -89,14 +91,14 @@ class StorageHelper {
                 foreach ($phpWord->getSections() as $section) {
                     foreach ($section->getElements() as $element) {
                         // Handle plain Text elements
-                        if ($element instanceof \PhpOffice\PhpWord\Element\Text) {
+                        if ($element instanceof Text) {
                             $text .= $element->getText()."\n";
                         }
 
                         // Handle TextRun (very common in DOCX)
-                        elseif ($element instanceof \PhpOffice\PhpWord\Element\TextRun) {
+                        elseif ($element instanceof TextRun) {
                             foreach ($element->getElements() as $child) {
-                                if ($child instanceof \PhpOffice\PhpWord\Element\Text) {
+                                if ($child instanceof Text) {
                                     $text .= $child->getText();
                                 }
                             }
@@ -104,11 +106,11 @@ class StorageHelper {
                         }
 
                         // Handle Tables (optional but useful)
-                        elseif ($element instanceof \PhpOffice\PhpWord\Element\Table) {
+                        elseif ($element instanceof Table) {
                             foreach ($element->getRows() as $row) {
                                 foreach ($row->getCells() as $cell) {
                                     foreach ($cell->getElements() as $cellElement) {
-                                        if ($cellElement instanceof \PhpOffice\PhpWord\Element\Text) {
+                                        if ($cellElement instanceof Text) {
                                             $text .= $cellElement->getText().' ';
                                         }
                                     }

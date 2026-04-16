@@ -4,12 +4,9 @@ namespace App\Http\Controllers\Select;
 
 use App\Helpers\QueryHelper;
 use App\Http\Controllers\Controller;
-use App\Models\Rbac\RbacPermission;
-use App\Models\Rbac\RbacRole;
 use App\Models\System\SystemDropdown;
 use App\Models\System\SystemDropdownModule;
 use App\Models\System\SystemDropdownModuleType;
-use App\Models\User\User;
 use Illuminate\Http\Request;
 
 class SelectController extends Controller {

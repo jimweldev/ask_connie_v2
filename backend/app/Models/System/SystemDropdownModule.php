@@ -10,8 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'label',
 ])]
 class SystemDropdownModule extends Model {
-    public function system_dropdown_module_types(): HasMany
-    {
+    public function system_dropdown_module_types(): HasMany {
         return $this->hasMany(SystemDropdownModuleType::class, 'system_dropdown_module_id');
     }
 }

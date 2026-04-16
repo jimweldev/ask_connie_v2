@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\User;
 
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use App\Http\Controllers\Controller;
-use App\Models\User\User;
 use App\Helpers\DynamicLogger;
 use App\Helpers\QueryHelper;
 use App\Helpers\StorageHelper;
+use App\Http\Controllers\Controller;
+use App\Models\User\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Class UserController
@@ -141,7 +141,7 @@ class UserController extends Controller {
                 if ($record->avatar_path) {
                     StorageHelper::deleteFile($record->avatar_path);
                 }
-                
+
                 $avatar = $request->file('avatar');
                 $avatarPath = StorageHelper::uploadFile($avatar, 'avatars');
                 if ($avatarPath) {

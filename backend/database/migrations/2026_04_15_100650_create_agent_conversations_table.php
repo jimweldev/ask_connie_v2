@@ -4,34 +4,25 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Ai\Migrations\AiMigration;
 
-return new class extends AiMigration
-{
+return new class extends AiMigration {
     /**
      * Run the migrations.
      */
-    public function up(): void
-    {
-        Schema::create('agent_conversations', function (Blueprint $table) {
-            $table->string('id', 36)->primary();
-            $table->string('user_id')->nullable()->index();
-            $table->string('title');
+    public function up(): void {
+        Schema::create('chats', function (Blueprint $table) {
+            $table->id();
+            // Use a string to store the external identifier and index it for fast lookups
+            $table->string('external_user_id')->index();
+            $table->string('app_source')->nullable(); // Optional: keep track of which app they came from
+            $table->string('title')->nullable();
             $table->timestamps();
-
-            $table->index(['user_id', 'updated_at']);
         });
 
-        Schema::create('agent_conversation_messages', function (Blueprint $table) {
-            $table->string('id', 36)->primary();
-            $table->string('conversation_id', 36)->index();
-            $table->string('user_id')->nullable()->index();
-            $table->string('agent');
-            $table->string('role', 25);
+        Schema::create('chat_messages', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('chat_id')->constrained()->cascadeOnDelete();
+            $table->string('role');
             $table->text('content');
-            $table->text('attachments');
-            $table->text('tool_calls');
-            $table->text('tool_results');
-            $table->text('usage');
-            $table->text('meta');
             $table->timestamps();
         });
     }
@@ -39,9 +30,8 @@ return new class extends AiMigration
     /**
      * Reverse the migrations.
      */
-    public function down(): void
-    {
-        Schema::dropIfExists('agent_conversations');
-        Schema::dropIfExists('agent_conversation_messages');
+    public function down(): void {
+        Schema::dropIfExists('chats');
+        Schema::dropIfExists('chat_messages');
     }
 };

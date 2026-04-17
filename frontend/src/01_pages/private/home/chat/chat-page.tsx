@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bot, Loader2, Send } from 'lucide-react';
+import {
+  Bot,
+  CheckCircle,
+  Edit,
+  Loader2,
+  RefreshCw,
+  Send,
+  Ticket,
+  XCircle,
+} from 'lucide-react';
 import { mainInstance } from '@/07_instances/main-instance';
 import MarkdownRenderer from '@/components/code/markdown-renderer';
 import ReactImage from '@/components/image/react-image';
@@ -12,6 +21,13 @@ import { cn } from '@/lib/utils';
 type Message = {
   role: 'user' | 'assistant';
   content: string;
+  suggestedActions?: string[];
+};
+
+type ChatResponse = {
+  response: string;
+  chat_id: number;
+  suggested_actions?: string[];
 };
 
 const ChatPage = () => {
@@ -33,21 +49,26 @@ const ChatPage = () => {
     inputRef.current?.focus();
   }, []);
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+  const sendMessage = async (
+    messageText: string,
+    isSuggestedAction: boolean = false,
+  ) => {
+    if (!messageText.trim() || loading) return;
 
     const userMessage: Message = {
       role: 'user',
-      content: input,
+      content: messageText,
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    if (!isSuggestedAction) {
+      setInput('');
+    }
     setLoading(true);
 
     try {
-      const res = await mainInstance.post('/chat', {
-        message: input,
+      const res = await mainInstance.post<ChatResponse>('/chat', {
+        message: messageText,
         user_id: '3',
         chat_id: chatId,
       });
@@ -55,6 +76,7 @@ const ChatPage = () => {
       const aiMessage: Message = {
         role: 'assistant',
         content: res.data.response,
+        suggestedActions: res.data.suggested_actions,
       };
 
       setChatId(res.data.chat_id);
@@ -65,6 +87,7 @@ const ChatPage = () => {
         {
           role: 'assistant',
           content: 'Something went wrong. Please try again.',
+          suggestedActions: ['Try Again', 'Start Over'],
         },
       ]);
     } finally {
@@ -76,8 +99,33 @@ const ChatPage = () => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      sendMessage(input);
     }
+  };
+
+  const handleSuggestedAction = (action: string) => {
+    sendMessage(action, true);
+  };
+
+  const getActionIcon = (action: string) => {
+    const actionLower = action.toLowerCase();
+    if (actionLower === 'submit') return <CheckCircle className="h-3 w-3" />;
+    if (actionLower === 'cancel') return <XCircle className="h-3 w-3" />;
+    if (actionLower === 'modify') return <Edit className="h-3 w-3" />;
+    if (actionLower === 'view ticket') return <Ticket className="h-3 w-3" />;
+    if (actionLower === 'try again') return <RefreshCw className="h-3 w-3" />;
+    return null;
+  };
+
+  const getActionVariant = (
+    action: string,
+  ): 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' => {
+    const actionLower = action.toLowerCase();
+    if (actionLower === 'submit') return 'default';
+    if (actionLower === 'cancel') return 'destructive';
+    if (actionLower === 'modify') return 'secondary';
+    if (actionLower === 'view ticket') return 'default';
+    return 'outline';
   };
 
   return (
@@ -117,14 +165,14 @@ const ChatPage = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setInput('What can you help me with?')}
+                onClick={() => sendMessage('What can you help me with?')}
               >
                 What can you help me with?
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setInput('Tell me a fun fact')}
+                onClick={() => sendMessage('Tell me a fun fact')}
               >
                 Tell me a fun fact
               </Button>
@@ -133,40 +181,60 @@ const ChatPage = () => {
         ) : (
           <div className="space-y-4">
             {messages.map((msg, index) => (
-              <div
-                key={index}
-                className={cn(
-                  'flex gap-3',
-                  msg.role === 'user' ? 'justify-end' : 'justify-start',
-                )}
-              >
-                {msg.role === 'assistant' && (
-                  <ReactImage
-                    className="flex size-7 items-center justify-center overflow-hidden rounded-full border border-card outline-2 outline-primary"
-                    imagePath="/images/connie-avatar.png"
-                    alt="Assistant"
-                    fallback="/images/default-avatar.png"
-                  />
-                )}
-
+              <div key={index}>
                 <div
                   className={cn(
-                    'max-w-[70%] rounded-2xl px-4 py-2.5',
-                    msg.role === 'user'
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-900',
+                    'flex gap-3',
+                    msg.role === 'user' ? 'justify-end' : 'justify-start',
                   )}
                 >
-                  <MarkdownRenderer text={msg.content} />
+                  {msg.role === 'assistant' && (
+                    <ReactImage
+                      className="flex size-7 items-center justify-center overflow-hidden rounded-full border border-card outline-2 outline-primary"
+                      imagePath="/images/connie-avatar.png"
+                      alt="Assistant"
+                      fallback="/images/default-avatar.png"
+                    />
+                  )}
+
+                  <div
+                    className={cn(
+                      'max-w-[70%] rounded-2xl px-4 py-2.5',
+                      msg.role === 'user'
+                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-900',
+                    )}
+                  >
+                    <MarkdownRenderer text={msg.content} />
+                  </div>
+
+                  {msg.role === 'user' && (
+                    <ReactImage
+                      className="flex size-7 items-center justify-center overflow-hidden rounded-full border border-card outline-2 outline-primary"
+                      imagePath="/images/default-avatar.png"
+                      alt="User"
+                      fallback="/images/default-avatar.png"
+                    />
+                  )}
                 </div>
 
-                {msg.role === 'user' && (
-                  <ReactImage
-                    className="flex size-7 items-center justify-center overflow-hidden rounded-full border border-card outline-2 outline-primary"
-                    imagePath="/images/default-avatar.png"
-                    alt="User"
-                    fallback="/images/default-avatar.png"
-                  />
+                {/* Suggested Actions */}
+                {msg.suggestedActions && msg.suggestedActions.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2 pl-10">
+                    {msg.suggestedActions.map((action, actionIndex) => (
+                      <Button
+                        key={actionIndex}
+                        size="sm"
+                        variant={getActionVariant(action)}
+                        onClick={() => handleSuggestedAction(action)}
+                        disabled={loading}
+                        className="gap-1 text-xs"
+                      >
+                        {getActionIcon(action)}
+                        {action}
+                      </Button>
+                    ))}
+                  </div>
                 )}
               </div>
             ))}
@@ -221,7 +289,7 @@ const ChatPage = () => {
             )}
           </div>
           <Button
-            onClick={sendMessage}
+            onClick={() => sendMessage(input)}
             disabled={loading || !input.trim()}
             className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
           >

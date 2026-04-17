@@ -15,6 +15,7 @@ class ChatMessage extends Model {
         'chat_id',
         'role',
         'content',
+        'external_user_id',
     ];
 
     protected $casts = [

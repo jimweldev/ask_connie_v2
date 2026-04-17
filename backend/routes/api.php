@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\Example\ExampleTaskController;
 use App\Http\Controllers\Rag\RagFileController;
 use App\Http\Controllers\Select\SelectController;
@@ -40,6 +41,5 @@ Route::middleware('jwt.auth')->group(function () {
     Route::resource('/rag/files', RagFileController::class);
 
     // Chat endpoints
-    Route::post('/chat', [RagFileController::class, 'chat']);
-    Route::post('/chat/stream', [RagFileController::class, 'chatStream']);
+    Route::post('/chat', [ChatController::class, 'chat']);
 });

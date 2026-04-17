@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Rag;
 
-use App\Ai\Agents\MegaToolAgent;
+use App\Ai\Agents\AskConnieAgent;
 use App\Helpers\DynamicLogger;
 use App\Helpers\QueryHelper;
 use App\Helpers\RagChunker;
@@ -10,11 +10,12 @@ use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Jobs\Rag\EmbedRagFileChunk;
 use App\Models\Chat\Chat;
+use App\Models\Chat\ChatMessage;
+use App\Models\External\ExternalUser;
 use App\Models\Rag\RagFile;
 use App\Models\Rag\RagFileChunk;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class RagFileController extends Controller {
     private $logger;
@@ -237,60 +238,49 @@ class RagFileController extends Controller {
      * @bodyParam message string required The user's message/question
      * @bodyParam conversation_id string Optional conversation ID to continue an existing conversation
      */
-    public function chat(Request $request)
-    {
-        $externalId = $request->input('user_id') ?? '0';
-        $appSource = $request->input('app_source') ?? 'default';
-        $userInput = $request->input('message');
+    public function chat(Request $request) {
+        $externalUserId = $request->input('external_user_id', '1');
+        $appSource = $request->input('app_source', 'default');
         $chatId = $request->input('chat_id');
+        $message = $request->input('message');
 
-        if (!$userInput) {
-            return response()->json(['error' => 'Message is required'], 400);
-        }
-
-        if ($chatId) {
-            $chat = Chat::find($chatId);
-
-            if (!$chat) {
-                return response()->json(['error' => 'Chat not found'], 404);
-            }
-        } else {
-            $chat = Chat::create([
-                'external_user_id' => $externalId,
-                'app_source' => $appSource,
-                'title' => substr($userInput, 0, 50),
-            ]);
-        }
-
-        $chat->messages()->create([
-            'role' => 'user',
-            'content' => $userInput,
+        $externalUser = ExternalUser::firstOrCreate([
+            'external_user_id' => $externalUserId,
+            'app_source' => $appSource,
         ]);
 
-        try {
-            $agent = new MegaToolAgent($chat);
+        $externalUserId = $externalUser->id;
 
-            $response = $agent->prompt($userInput);
+        if (!$chatId) {
+            $chat = Chat::create([
+                'external_user_id' => $externalUserId,
+                'app_source' => $appSource,
+            ]);
 
-            $final = trim((string) $response);
-
-            if ($final === '') {
-                $final = "I'm sorry, I didn't get that. Could you rephrase your request?";
-            }
-
-        } catch (\Throwable $e) {
-            Log::error('AI ERROR', ['error' => $e->getMessage()]);
-            $final = '⚠️ Something went wrong. Please try again.';
+            $chatId = $chat->id;
         }
 
-        $chat->messages()->create([
+        ChatMessage::create([
+            'chat_id' => $chatId,
+            'external_user_id' => $externalUserId,
+            'role' => 'user',
+            'content' => $message,
+        ]);
+
+        $agent = AskConnieAgent::make($externalUser, $chatId);
+
+        $response = $agent->prompt($message);
+
+        ChatMessage::create([
+            'chat_id' => $chatId,
+            'external_user_id' => $externalUserId,
             'role' => 'assistant',
-            'content' => $final,
+            'content' => $response->text,
         ]);
 
         return response()->json([
-            'chat_id' => $chat->id,
-            'response' => $final,
-        ]);
+            'response' => $response->text,
+            'chat_id' => $chatId,
+        ], 200);
     }
 }

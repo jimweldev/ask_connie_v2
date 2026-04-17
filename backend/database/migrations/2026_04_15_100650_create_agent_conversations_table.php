@@ -12,7 +12,7 @@ return new class extends AiMigration {
         Schema::create('chats', function (Blueprint $table) {
             $table->id();
             // Use a string to store the external identifier and index it for fast lookups
-            $table->string('external_user_id')->index();
+            $table->foreignId('external_user_id')->constrained('external_users')->cascadeOnDelete();
             $table->string('app_source')->nullable(); // Optional: keep track of which app they came from
             $table->string('title')->nullable();
             $table->timestamps();
@@ -21,6 +21,7 @@ return new class extends AiMigration {
         Schema::create('chat_messages', function (Blueprint $table) {
             $table->id();
             $table->foreignId('chat_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('external_user_id')->constrained('external_users')->cascadeOnDelete();
             $table->string('role');
             $table->text('content');
             $table->timestamps();

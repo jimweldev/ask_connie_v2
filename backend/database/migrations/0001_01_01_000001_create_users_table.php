@@ -24,6 +24,15 @@ return new class extends Migration {
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();
         });
+
+        Schema::create('external_users', function (Blueprint $table) {
+            $table->id();
+            $table->string('external_user_id')->index();
+            $table->string('app_source')->default('default')->index();
+            $table->softDeletes();
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();
+        });
     }
 
     /**

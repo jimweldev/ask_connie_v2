@@ -67,7 +67,7 @@ const LoginPage = () => {
         <CardBody>
           <ReactImage
             className="h-12 w-12 rounded-full"
-            imagePath="/logos/logo.svg"
+            imagePath="/logos/app-logo.png"
             alt={`${import.meta.env.VITE_APP_NAME} Logo`}
           />
           <Form {...form}>

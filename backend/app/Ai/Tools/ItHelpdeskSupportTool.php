@@ -11,37 +11,6 @@ use Laravel\Ai\Tools\Request;
 use Stringable;
 
 class ItHelpdeskSupportTool implements Tool {
-    /**
-     * Get the session key for storing draft data
-     */
-    protected function getSessionKey(): string {
-        return 'it_ticket_draft';
-    }
-
-    /**
-     * Get the project name for display and API
-     */
-    protected function getProjectName(): string {
-        return 'IT Helpdesk Support';
-    }
-
-    /**
-     * Get the API endpoint URL
-     */
-    protected function getApiEndpoint(): string {
-        // Use %20 to avoid encoding issues
-        return 'https://test-megaform-api.connextglobal.com/rag/IT%20Helpdesk%20Support';
-    }
-
-    /**
-     * Get default values for the tool's fields
-     */
-    protected function getDefaultValues(): array {
-        return [
-            'impact' => 'station down - alternative available',
-            'urgency' => 'HIGH',
-        ];
-    }
 
     public function description(): Stringable|string {
         return 'Manages IT Helpdesk tickets with draft, update, submit, and cancel operations.';
@@ -59,33 +28,23 @@ class ItHelpdeskSupportTool implements Tool {
     }
 
     public function handle(Request $request): Stringable|string {
-        Log::info('ItHelpdeskSupportTool handle called');
-
         $incoming = $request->all();
         $confirmed = $incoming['confirmed'] ?? false;
-        $existingDraft = Session::get($this->getSessionKey(), []);
-
-        Log::info('ItHelpdeskSupportTool incoming data', $incoming);
-        Log::info('ItHelpdeskSupportTool existing draft', $existingDraft);
+        $existingDraft = Session::get('it_ticket_draft', []);
 
         // Handle description appends intelligently
         if (isset($incoming['issue_description']) && isset($existingDraft['issue_description'])) {
             $newDesc = $incoming['issue_description'];
             $oldDesc = $existingDraft['issue_description'];
 
-            // Check if the new description is just an addition (not a full replacement)
-            // Heuristic: if new text is short (< 50 chars) or doesn't start with typical sentence starters
             $isAppend = strlen($newDesc) < 50 &&
                         !preg_match('/^(My|I|The|My\s)/i', $newDesc);
 
-            // Also check if the new text is already contained in the old description
             $alreadyContains = str_contains($oldDesc, $newDesc);
 
             if ($isAppend && !$alreadyContains) {
-                // Append with proper spacing
                 $incoming['issue_description'] = rtrim($oldDesc, '.').'. '.ucfirst(ltrim($newDesc));
             } elseif ($alreadyContains) {
-                // If already contained, use the old description to avoid duplication
                 unset($incoming['issue_description']);
             }
         }
@@ -97,10 +56,8 @@ class ItHelpdeskSupportTool implements Tool {
         );
 
         // Apply default values for missing fields
-        $defaults = $this->getDefaultValues();
-        foreach ($defaults as $key => $defaultValue) {
-            $merged[$key] ??= $defaultValue;
-        }
+        $merged['impact'] ??= 'station down - alternative available';
+        $merged['urgency'] ??= 'HIGH';
 
         // Inject user_id from session
         $userId = Session::get('user_id');
@@ -111,12 +68,11 @@ class ItHelpdeskSupportTool implements Tool {
         // Inject external_user_id if available
         $externalUserId = Session::get('external_user_id');
         if ($externalUserId && !isset($merged['external_user_id'])) {
-            $merged['external_user_id'] = $externalUserId;
+            $merged['user_id'] = $externalUserId;
         }
 
-        // --- FIXED DESCRIPTION FORMATTING ---
+        // Description formatting
         if (isset($merged['issue_description'])) {
-            // Remove any duplicate sentences (simple deduplication)
             $sentences = preg_split('/(?<=[.!?])\s+/', $merged['issue_description'], -1, PREG_SPLIT_NO_EMPTY);
             $uniqueSentences = [];
             foreach ($sentences as $sentence) {
@@ -126,85 +82,62 @@ class ItHelpdeskSupportTool implements Tool {
                 }
             }
             $merged['issue_description'] = implode(' ', $uniqueSentences);
-
-            // Clean up awkward "My no" pattern
             $merged['issue_description'] = preg_replace('/My\s+no\s+/i', 'I have no ', $merged['issue_description']);
             $merged['issue_description'] = preg_replace('/My\s+(\w+)/i', 'My $1', $merged['issue_description']);
 
-            // Ensure it starts properly
             if (!preg_match('/^(My|I|The|This)/i', $merged['issue_description'])) {
                 $merged['issue_description'] = 'I have '.lcfirst($merged['issue_description']);
             }
         }
 
-        // --- CAPITALIZE SUMMARY AND DESCRIPTION ---
-        if (isset($merged['issue_summary']) && !empty($merged['issue_summary'])) {
+        // Capitalize summary and description
+        if (!empty($merged['issue_summary'])) {
             $merged['issue_summary'] = ucfirst($merged['issue_summary']);
         }
-        if (isset($merged['issue_description']) && !empty($merged['issue_description'])) {
+        if (!empty($merged['issue_description'])) {
             $merged['issue_description'] = ucfirst($merged['issue_description']);
         }
 
-        // --- FALLBACK FOR BLANK SUMMARY/DESCRIPTION ---
+        // Fallback for blank summary/description
         if (empty($merged['issue_summary'])) {
-            $merged['issue_summary'] = $merged['issue'] ?? 'Issue reported';
-            $merged['issue_summary'] = ucfirst($merged['issue_summary']);
+            $merged['issue_summary'] = ucfirst($merged['issue'] ?? 'Issue reported');
         }
         if (empty($merged['issue_description'])) {
-            $merged['issue_description'] = $merged['issue_summary'] ?? 'No description provided';
-            $merged['issue_description'] = ucfirst($merged['issue_description']);
+            $merged['issue_description'] = ucfirst($merged['issue_summary'] ?? 'No description provided');
         }
-        // ---------------------------------------------
 
         // Store the draft in session
-        Session::put($this->getSessionKey(), $merged);
+        Session::put('it_ticket_draft', $merged);
 
         // If not confirmed, return draft
         if (!$confirmed) {
-            Log::info('ItHelpdeskSupportTool returning draft');
-
             return json_encode([
                 'status' => 'DRAFT_PREPARED',
-                'project' => $this->getProjectName(),
+                'project' => 'IT Helpdesk Support',
                 'data' => $merged,
             ]);
         }
 
-        // --- PREPARE PAYLOAD FOR API ---
+        // Prepare payload for API
         $payload = $merged;
-        unset($payload['confirmed']);
-        unset($payload['id'], $payload['created_at'], $payload['updated_at']);
+        unset($payload['confirmed'], $payload['id'], $payload['created_at'], $payload['updated_at']);
 
-        Log::info('ItHelpdeskSupportTool submitting payload', $payload);
-
-        // Submit the ticket
-        $response = Http::post($this->getApiEndpoint(), $payload);
+        $response = Http::post('https://test-megaform-api.connextglobal.com/rag/IT%20Helpdesk%20Support', $payload);
 
         if ($response->successful()) {
-            Session::forget($this->getSessionKey());
+            Session::forget('it_ticket_draft');
 
             $responseData = $response->json();
-            Log::info('ItHelpdeskSupportTool submission successful', $responseData);
 
             return json_encode([
                 'status' => 'SUCCESS',
-                'project' => $this->getProjectName(),
+                'project' => 'IT Helpdesk Support',
                 'ticket_link' => $responseData['ticket_link'] ?? null,
                 'message' => $responseData['message'] ?? 'Ticket created successfully',
                 'id' => $responseData['id'] ?? null,
             ]);
         }
 
-        // Log the full error for debugging
-        Log::error('Ticket submission failed', [
-            'project' => $this->getProjectName(),
-            'endpoint' => $this->getApiEndpoint(),
-            'payload' => $payload,
-            'response_status' => $response->status(),
-            'response_body' => $response->body(),
-        ]);
-
-        // Extract meaningful error message
         $errorMessage = $response->reason();
         $responseData = $response->json();
         if ($responseData && isset($responseData['message'])) {
@@ -215,7 +148,7 @@ class ItHelpdeskSupportTool implements Tool {
 
         return json_encode([
             'status' => 'ERROR',
-            'project' => $this->getProjectName(),
+            'project' => 'IT Helpdesk Support',
             'message' => $errorMessage,
         ]);
     }

@@ -11,8 +11,6 @@ use Illuminate\Support\Facades\Log;
 
 class ChatController extends Controller {
     public function chat(Request $request) {
-        Log::info('ChatController chat called');
-
         $externalUserId = $request->input('external_user_id', '1');
         $appSource = $request->input('app_source', 'default');
         $chatId = $request->input('chat_id');

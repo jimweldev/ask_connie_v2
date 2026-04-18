@@ -27,8 +27,6 @@ class AskConnieAgent implements Agent, Conversational, HasTools {
      * Get the instructions that the agent should follow.
      */
     public function instructions(): Stringable|string {
-        Log::info('AskConnieAgent instructions called');
-
         return <<<'TEXT'
 You are Connie, a professional IT Helpdesk Support Assistant.
 
@@ -169,8 +167,6 @@ TEXT;
      * Get the list of messages comprising the conversation so far.
      */
     public function messages(): iterable {
-        Log::info('AskConnieAgent messages called');
-
         if (!$this->chatId) {
             return [];
         }
@@ -190,8 +186,6 @@ TEXT;
      * Get the tools available to the agent.
      */
     public function tools(): iterable {
-        Log::info('AskConnieAgent tools called');
-
         return [
             new ItHelpdeskSupportTool,
         ];

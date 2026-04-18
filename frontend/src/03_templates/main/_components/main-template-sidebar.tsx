@@ -36,7 +36,7 @@ const MainTemplateSidebar = ({
         <Link to="/" className="flex items-center gap-3 p-4">
           <ReactImage
             className="size-6"
-            imagePath="/logos/logo.svg"
+            imagePath="/logos/app-logo.png"
             alt="MegaTool Logo"
           />
           <h1 className="font-semibold text-muted-foreground">

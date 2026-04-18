@@ -26,6 +26,18 @@ return new class extends AiMigration {
             $table->text('content');
             $table->timestamps();
         });
+
+        Schema::create('chat_drafts', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('chat_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('external_user_id')->constrained('external_users')->cascadeOnDelete();
+            $table->string('project')->default('IT Helpdesk Support');
+            $table->json('data'); // stores the merged draft fields
+            $table->timestamps();
+
+            // One active draft per chat
+            $table->unique(['chat_id', 'project']);
+        });
     }
 
     /**

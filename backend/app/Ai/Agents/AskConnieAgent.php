@@ -5,7 +5,6 @@ namespace App\Ai\Agents;
 use App\Ai\Tools\ItHelpdeskSupportTool;
 use App\Models\Chat\ChatMessage;
 use App\Models\External\ExternalUser;
-use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Contracts\Agent;
@@ -187,7 +186,7 @@ TEXT;
      */
     public function tools(): iterable {
         return [
-            new ItHelpdeskSupportTool,
+            new ItHelpdeskSupportTool($this->chatId, $this->externalUser->id),
         ];
     }
 }

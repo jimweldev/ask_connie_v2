@@ -7,7 +7,6 @@ use App\Models\Chat\Chat;
 use App\Models\Chat\ChatMessage;
 use App\Models\External\ExternalUser;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class ChatController extends Controller {
     public function chat(Request $request) {

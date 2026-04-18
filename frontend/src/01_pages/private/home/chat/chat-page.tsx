@@ -102,8 +102,8 @@ const ChatPage = () => {
               </h1>
               <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
                 {[
-                  'Analyze this data',
-                  'Draft an email',
+                  'Tell me about Connext',
+                  'How to file a PTO',
                   'Help me code',
                   'Brainstorm ideas',
                 ].map(item => (

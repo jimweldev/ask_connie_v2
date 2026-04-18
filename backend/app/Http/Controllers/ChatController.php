@@ -50,7 +50,6 @@ class ChatController extends Controller {
 
         // Check for tool results and format them
         $suggestedActions = [];
-        $toolCalled = false;
 
         if (isset($response->toolResults) && count($response->toolResults) > 0) {
             foreach ($response->toolResults as $toolResult) {

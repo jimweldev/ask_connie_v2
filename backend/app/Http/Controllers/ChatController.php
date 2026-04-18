@@ -53,10 +53,18 @@ class ChatController extends Controller {
         $toolCalled = false;
 
         if (isset($response->toolResults) && count($response->toolResults) > 0) {
-            $toolCalled = true;
-            $formatted = $this->formatToolResults($response->toolResults);
-            $text = $formatted['text'];
-            $suggestedActions = $formatted['suggested_actions'] ?? [];
+            foreach ($response->toolResults as $toolResult) {
+                $decoded = json_decode($toolResult->result, true);
+                
+                // Only format if it's a structured ticket response
+                if ($decoded && isset($decoded['status'])) {
+                    $formatted = $this->formatToolResults([$toolResult]);
+                    $text = $formatted['text'];
+                    $suggestedActions = $formatted['suggested_actions'] ?? [];
+                    break; // ticket tool found, stop checking
+                }
+                // Otherwise, let $response->text speak (KB tool result)
+            }
         }
 
         // Only store assistant message if it's not empty

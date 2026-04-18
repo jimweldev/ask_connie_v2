@@ -23,7 +23,15 @@ class KnowledgeBaseTool implements Tool {
     public function handle(Request $request): Stringable|string {
         $query = $request['query'];
 
+        if (empty($query)) {
+            return 'No query provided.';
+        }
+
         $queryVector = AiHelper::generateEmbeddings($query);
+        
+        if (empty($queryVector)) {
+            return 'Could not generate embeddings for the query.';
+        }
 
         // STEP 1: get candidates via vector search ONLY
         $candidates = RagFileChunk::query()
@@ -81,9 +89,7 @@ class KnowledgeBaseTool implements Tool {
      */
     public function schema(JsonSchema $schema): array {
         return [
-            'query' => $schema->string()
-                ->description('The search query to look up in the knowledge base')
-                ->required(),
+            'query' => $schema->string()->required(),
         ];
     }
 }

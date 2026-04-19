@@ -9,75 +9,98 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
-class ItHelpdeskSupportTool implements Tool {
+class PayrollDisputeTool implements Tool {
     public function __construct(
         private int $chatId,
         private int $externalUserId
     ) {}
 
     public function description(): Stringable|string {
-        return 'Ticketing for IT related issues such as mouse, keyboard, monitor, cpu, ups, email, network, etc.';
+        return 'Ticketing for payroll disputes such as salary discrepancies, missing payouts, incorrect amounts, late payments, and deduction issues.';
     }
 
     public function schema(JsonSchema $schema): array {
         return [
-            'issue' => $schema->string()->enum([
-                'Application Error',
-                'Seat Reservation',
-                'Station Relocation',
-                'Email',
-                'Terminate Access',
-                'Softphone',
-                'UPS',
-                'CPU',
-                'Webcam',
-                'Monitor',
-                'Headset',
-                'Keyboard',
-                'Mouse',
-                'VPN',
-                'Internet Latency',
-                'Bug/Malfunction',
-                'App Installation Request',
-                'Remote Desktop',
-                'Hardware Assistance',
-                'APPLICATION ASSISTANCE',
-                'NEW HIRE',
-                'PO-INVENTORY',
-                'MS Office Activation',
-                'No Internet',
-                'Poor Video',
-                'Poor Audio',
-                'Not responding',
-                'Login Problem',
-                'Disconnects',
-                'Connection Dropped'
+            'pay_out_month' => $schema->string()->enum([
+                'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December',
+                '13th Month',
             ]),
-            'impact' => $schema->string()->enum([
-                'Request',
-                'Minor / Localized',
-                'Moderate / Limited',
-                'Significant / Large',
-                'Extensive / Widespread'
+            'pay_out_date' => $schema->string()->enum([
+                '10', '25', 'N/A',
             ]),
-            'urgency' => $schema->string()->enum([
-                'LOW',
-                'MEDIUM',
-                'HIGH',
-                'CRITICAL'
+            'pay_out_year' => $schema->string()->enum([
+                '2025', '2026', '2027',
             ]),
             'issue_summary' => $schema->string(),
             'issue_description' => $schema->string(),
+            'impact' => $schema->string()->enum([
+                'salary discrepancy',
+                'missing payout',
+                'incorrect amount',
+                'late payment',
+                'deduction issue',
+                'other',
+            ]),
+            'urgency' => $schema->string()->enum([
+                'critical',
+                'high',
+                'medium',
+                'low',
+            ]),
             'confirmed' => $schema->boolean(),
         ];
+    }
+
+    /**
+     * Determine the latest payout date based on today's date.
+     * Payouts are on the 10th and 25th of each month.
+     * Always return the most recent payout that has already passed.
+     */
+    private function resolveLatestPayout(): array {
+        $now = now();
+        $day = (int) $now->format('j');
+        $month = (int) $now->format('n');
+        $year = (int) $now->format('Y');
+
+        $monthNames = [
+            1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
+            5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
+            9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
+        ];
+
+        if ($day >= 25) {
+            // Latest payout is the 25th of this month
+            return [
+                'pay_out_date' => '25',
+                'pay_out_month' => $monthNames[$month],
+                'pay_out_year' => (string) $year,
+            ];
+        } elseif ($day >= 10) {
+            // Latest payout is the 10th of this month
+            return [
+                'pay_out_date' => '10',
+                'pay_out_month' => $monthNames[$month],
+                'pay_out_year' => (string) $year,
+            ];
+        } else {
+            // Latest payout was the 25th of the previous month
+            $prevMonth = $month === 1 ? 12 : $month - 1;
+            $prevYear = $month === 1 ? $year - 1 : $year;
+            return [
+                'pay_out_date' => '25',
+                'pay_out_month' => $monthNames[$prevMonth],
+                'pay_out_year' => (string) $prevYear,
+            ];
+        }
     }
 
     public function handle(Request $request): Stringable|string {
         $incoming = $request->all();
         $confirmed = $incoming['confirmed'] ?? false;
-        $project = 'IT Helpdesk Support';
+        $project = 'Payroll Dispute';
 
-        // Load existing draft from DB instead of session
+        // Load existing draft from DB
         $draftRecord = ChatDraft::where('chat_id', $this->chatId)
             ->where('project', $project)
             ->first();
@@ -104,8 +127,14 @@ class ItHelpdeskSupportTool implements Tool {
             array_filter($incoming, fn ($v) => !is_null($v) && $v !== '')
         );
 
-        $merged['impact'] ??= 'station down - alternative available';
-        $merged['urgency'] ??= 'MEDIUM';
+        // Apply latest payout defaults if not specified
+        $latestPayout = $this->resolveLatestPayout();
+        $merged['pay_out_month'] ??= $latestPayout['pay_out_month'];
+        $merged['pay_out_date'] ??= $latestPayout['pay_out_date'];
+        $merged['pay_out_year'] ??= $latestPayout['pay_out_year'];
+
+        $merged['impact'] ??= 'other';
+        $merged['urgency'] ??= 'medium';
         $merged['user_id'] ??= $this->externalUserId;
 
         // Description deduplication and formatting
@@ -125,10 +154,10 @@ class ItHelpdeskSupportTool implements Tool {
             }
         }
 
-        $merged['issue_summary'] = ucfirst($merged['issue_summary'] ?? ($merged['issue'] ?? 'Issue reported'));
+        $merged['issue_summary'] = ucfirst($merged['issue_summary'] ?? ($merged['impact'] ?? 'Payroll dispute reported'));
         $merged['issue_description'] = ucfirst($merged['issue_description'] ?? $merged['issue_summary']);
 
-        // Persist draft to DB (upsert so modifying re-uses same row)
+        // Persist draft to DB
         ChatDraft::updateOrCreate(
             ['chat_id' => $this->chatId, 'project' => $project],
             [
@@ -149,7 +178,7 @@ class ItHelpdeskSupportTool implements Tool {
         $payload = $merged;
         unset($payload['confirmed'], $payload['id'], $payload['created_at'], $payload['updated_at']);
 
-        $response = Http::post('https://test-megaform-api.connextglobal.com/rag/IT%20Helpdesk%20Support', $payload);
+        $response = Http::post('https://test-megaform-api.connextglobal.com/payroll-dispute', $payload);
 
         if ($response->successful()) {
             // Delete draft on success
@@ -161,7 +190,7 @@ class ItHelpdeskSupportTool implements Tool {
                 'status' => 'SUCCESS',
                 'project' => $project,
                 'ticket_link' => $data['ticket_link'] ?? null,
-                'message' => $data['message'] ?? 'Ticket created successfully',
+                'message' => $data['message'] ?? 'Dispute submitted successfully',
                 'id' => $data['id'] ?? null,
             ]);
         }

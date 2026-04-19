@@ -101,44 +101,68 @@ class ChatController extends Controller {
                 $data = $decoded['data'];
                 $project = $decoded['project'];
 
-                $output = '**['.strtoupper($project)."] Draft Ticket Details:**\n\n";
+                $output = '**[' . strtoupper($project) . "] Draft Ticket Details:**\n\n";
 
-                // Only show fields that exist in the schema
-                if (isset($data['issue'])) {
-                    $output .= '- **Issue Type:** '.$data['issue']."\n";
+                // --- Payroll Dispute fields ---
+                if (isset($data['pay_out_month']) || isset($data['pay_out_date']) || isset($data['pay_out_year'])) {
+                    $month  = $data['pay_out_month'] ?? '-';
+                    $date   = $data['pay_out_date']  ?? '-';
+                    $year   = $data['pay_out_year']   ?? '-';
+                    $output .= "- **Payout Period:** {$month} {$date}, {$year}\n";
                 }
-                $output .= '- **Impact:** '.($data['impact'] ?? '-')."\n";
-                $output .= '- **Urgency:** '.($data['urgency'] ?? '-')."\n";
-                $output .= '- **Summary:** '.($data['issue_summary'] ?? '-')."\n";
-                $output .= '- **Description:** '.($data['issue_description'] ?? '-')."\n";
+
+                // --- Payroll Concern fields ---
+                if (isset($data['concern_type'])) {
+                    $output .= '- **Concern Type:** ' . $data['concern_type'] . "\n";
+                }
+
+                if (isset($data['concern_details'])) {
+                    $output .= '- **Concern Details:** ' . $data['concern_details'] . "\n";
+                }
+
+                // --- Shared fields (IT / MegaTool / HR / Facilities / Payroll Dispute) ---
+                if (isset($data['issue'])) {
+                    $output .= '- **Issue Type:** ' . $data['issue'] . "\n";
+                }
+
+                if (isset($data['issue_summary'])) {
+                    $output .= '- **Summary:** ' . $data['issue_summary'] . "\n";
+                }
+
+                if (isset($data['issue_description'])) {
+                    $output .= '- **Description:** ' . $data['issue_description'] . "\n";
+                }
+
+                $output .= '- **Impact:** '  . ($data['impact']  ?? '-') . "\n";
+                $output .= '- **Urgency:** ' . ($data['urgency'] ?? '-') . "\n";
 
                 $output .= "\nWould you like to **submit** this **{$project}** ticket, or would you like to modify anything?";
 
                 return [
-                    'text' => $output,
+                    'text'              => $output,
                     'suggested_actions' => ['Submit', 'Modify', 'Cancel'],
                 ];
             }
 
             // Handle successful submission
             if (isset($decoded['status']) && $decoded['status'] === 'SUCCESS') {
-                $project = $decoded['project'];
+                $project   = $decoded['project'];
                 $ticketLink = $decoded['ticket_link'] ?? null;
-                $ticketId = $decoded['id'] ?? null;
+                $ticketId   = $decoded['id'] ?? null;
 
                 if ($ticketLink) {
                     return [
-                        'text' => "✅ Your **{$project}** ticket has been successfully **submitted**. You can view it here: {$ticketLink}",
+                        'text'              => "✅ Your **{$project}** ticket has been successfully **submitted**. You can view it here: {$ticketLink}",
                         'suggested_actions' => ['Done'],
                     ];
                 } elseif ($ticketId) {
                     return [
-                        'text' => "✅ Your **{$project}** ticket has been successfully **submitted**. Reference ID: **{$ticketId}**",
+                        'text'              => "✅ Your **{$project}** ticket has been successfully **submitted**. Reference ID: **{$ticketId}**",
                         'suggested_actions' => ['Done'],
                     ];
                 } else {
                     return [
-                        'text' => "✅ Your **{$project}** ticket has been successfully **submitted**.",
+                        'text'              => "✅ Your **{$project}** ticket has been successfully **submitted**.",
                         'suggested_actions' => ['Done'],
                     ];
                 }
@@ -149,14 +173,14 @@ class ChatController extends Controller {
                 $project = $decoded['project'] ?? 'Support';
 
                 return [
-                    'text' => "❌ **{$project} Error:** ".($decoded['message'] ?? 'An unknown error occurred'),
+                    'text'              => "❌ **{$project} Error:** " . ($decoded['message'] ?? 'An unknown error occurred'),
                     'suggested_actions' => ['Try Again', 'Contact Support'],
                 ];
             }
         }
 
         return [
-            'text' => "I've processed your request. How would you like to proceed?",
+            'text'              => "I've processed your request. How would you like to proceed?",
             'suggested_actions' => ['Continue', 'Start Over'],
         ];
     }

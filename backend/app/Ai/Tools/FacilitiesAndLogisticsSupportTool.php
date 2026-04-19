@@ -9,62 +9,37 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
-class ItHelpdeskSupportTool implements Tool {
+class FacilitiesAndLogisticsSupportTool implements Tool {
     public function __construct(
         private int $chatId,
         private int $externalUserId
     ) {}
 
     public function description(): Stringable|string {
-        return 'Ticketing for IT related issues such as mouse, keyboard, monitor, cpu, ups, email, network, etc.';
+        return 'Ticketing for facilities and logistics related requests such as room setup, logistics, vehicle appointments, repairs and maintenance, space planning, printing and mailing, permits, safety or hazard incidents, and other facilities concerns.';
     }
 
     public function schema(JsonSchema $schema): array {
         return [
             'issue' => $schema->string()->enum([
-                'Application Error',
-                'Seat Reservation',
-                'Station Relocation',
-                'Email',
-                'Terminate Access',
-                'Softphone',
-                'UPS',
-                'CPU',
-                'Webcam',
-                'Monitor',
-                'Headset',
-                'Keyboard',
-                'Mouse',
-                'VPN',
-                'Internet Latency',
-                'Bug/Malfunction',
-                'App Installation Request',
-                'Remote Desktop',
-                'Hardware Assistance',
-                'APPLICATION ASSISTANCE',
-                'NEW HIRE',
-                'PO-INVENTORY',
-                'MS Office Activation',
-                'No Internet',
-                'Poor Video',
-                'Poor Audio',
-                'Not responding',
-                'Login Problem',
-                'Disconnects',
-                'Connection Dropped'
+                'ROOM SETUP & ARRANGEMENTS',
+                'LOGISTICS REQUEST',
+                'CONNEXT VEHICLE APPOINTMENT (ANGELES SITE)',
+                'REPAIRS, REPLACEMENT AND MAINTENANCE',
+                'SPACE PLANNING',
+                'PRINTING AND MAILING',
+                'PERMITS AND GATEPASS',
+                'SAFETY / HAZARD / INCIDENT',
+                'OTHER FACILITIES CONCERN AND REQUEST',
             ]),
             'impact' => $schema->string()->enum([
-                'Request',
-                'Minor / Localized',
-                'Moderate / Limited',
-                'Significant / Large',
-                'Extensive / Widespread'
+                'NORMAL',
+                'URGENT',
             ]),
             'urgency' => $schema->string()->enum([
                 'LOW',
                 'MEDIUM',
-                'HIGH',
-                'CRITICAL'
+                'CRITICAL',
             ]),
             'issue_summary' => $schema->string(),
             'issue_description' => $schema->string(),
@@ -75,7 +50,7 @@ class ItHelpdeskSupportTool implements Tool {
     public function handle(Request $request): Stringable|string {
         $incoming = $request->all();
         $confirmed = $incoming['confirmed'] ?? false;
-        $project = 'IT Helpdesk Support';
+        $project = 'Facilities and Logistics Support';
 
         // Load existing draft from DB instead of session
         $draftRecord = ChatDraft::where('chat_id', $this->chatId)
@@ -104,8 +79,8 @@ class ItHelpdeskSupportTool implements Tool {
             array_filter($incoming, fn ($v) => !is_null($v) && $v !== '')
         );
 
-        $merged['impact'] ??= 'station down - alternative available';
-        $merged['urgency'] ??= 'MEDIUM';
+        $merged['impact'] ??= 'NORMAL';
+        $merged['urgency'] ??= 'LOW';
         $merged['user_id'] ??= $this->externalUserId;
 
         // Description deduplication and formatting
@@ -149,7 +124,7 @@ class ItHelpdeskSupportTool implements Tool {
         $payload = $merged;
         unset($payload['confirmed'], $payload['id'], $payload['created_at'], $payload['updated_at']);
 
-        $response = Http::post('https://test-megaform-api.connextglobal.com/rag/IT%20Helpdesk%20Support', $payload);
+        $response = Http::post('https://test-megaform-api.connextglobal.com/rag/Facilities%20and%20Logistics%20Support', $payload);
 
         if ($response->successful()) {
             // Delete draft on success

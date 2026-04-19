@@ -9,56 +9,37 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
-class ItHelpdeskSupportTool implements Tool {
+class MegaToolSupportTool implements Tool {
     public function __construct(
         private int $chatId,
         private int $externalUserId
     ) {}
 
     public function description(): Stringable|string {
-        return 'Ticketing for IT related issues such as mouse, keyboard, monitor, cpu, ups, email, network, etc.';
+        return 'Ticketing for MegaTool (formerly MegaForm) related issues such as access errors, bugs, feature requests, time tracker, etc.';
     }
 
     public function schema(JsonSchema $schema): array {
         return [
             'issue' => $schema->string()->enum([
-                'Application Error',
-                'Seat Reservation',
-                'Station Relocation',
-                'Email',
-                'Terminate Access',
-                'Softphone',
-                'UPS',
-                'CPU',
-                'Webcam',
-                'Monitor',
-                'Headset',
-                'Keyboard',
-                'Mouse',
-                'VPN',
-                'Internet Latency',
-                'Bug/Malfunction',
-                'App Installation Request',
-                'Remote Desktop',
-                'Hardware Assistance',
-                'APPLICATION ASSISTANCE',
-                'NEW HIRE',
-                'PO-INVENTORY',
-                'MS Office Activation',
-                'No Internet',
-                'Poor Video',
-                'Poor Audio',
-                'Not responding',
-                'Login Problem',
-                'Disconnects',
-                'Connection Dropped'
+                'PASSWORD RESET',
+                'USER BLOCKED ACCOUNT',
+                'Form Access',
+                'USER NOT RECEIVING EMAIL',
+                'ISSUES/BUGS REPORT',
+                'ADDITIONAL FEATURE REQUEST',
+                'HELP/TUTORIAL REQUEST',
+                'MegaTool Latency',
+                'Time Tracker Issues',
+                'Sprout Widget Issue',
+                'OTHERS'
             ]),
             'impact' => $schema->string()->enum([
-                'Request',
-                'Minor / Localized',
-                'Moderate / Limited',
+                'Extensive / Widespread',
                 'Significant / Large',
-                'Extensive / Widespread'
+                'Moderate / Limited',
+                'Minor / Localized',
+                'Request'
             ]),
             'urgency' => $schema->string()->enum([
                 'LOW',
@@ -75,9 +56,9 @@ class ItHelpdeskSupportTool implements Tool {
     public function handle(Request $request): Stringable|string {
         $incoming = $request->all();
         $confirmed = $incoming['confirmed'] ?? false;
-        $project = 'IT Helpdesk Support';
+        $project = 'MegaTool Support';
 
-        // Load existing draft from DB instead of session
+        // Load existing draft from DB
         $draftRecord = ChatDraft::where('chat_id', $this->chatId)
             ->where('project', $project)
             ->first();
@@ -104,7 +85,7 @@ class ItHelpdeskSupportTool implements Tool {
             array_filter($incoming, fn ($v) => !is_null($v) && $v !== '')
         );
 
-        $merged['impact'] ??= 'station down - alternative available';
+        $merged['impact'] ??= 'MODERATE/LIMITED';
         $merged['urgency'] ??= 'MEDIUM';
         $merged['user_id'] ??= $this->externalUserId;
 
@@ -128,7 +109,7 @@ class ItHelpdeskSupportTool implements Tool {
         $merged['issue_summary'] = ucfirst($merged['issue_summary'] ?? ($merged['issue'] ?? 'Issue reported'));
         $merged['issue_description'] = ucfirst($merged['issue_description'] ?? $merged['issue_summary']);
 
-        // Persist draft to DB (upsert so modifying re-uses same row)
+        // Persist draft to DB
         ChatDraft::updateOrCreate(
             ['chat_id' => $this->chatId, 'project' => $project],
             [
@@ -149,10 +130,9 @@ class ItHelpdeskSupportTool implements Tool {
         $payload = $merged;
         unset($payload['confirmed'], $payload['id'], $payload['created_at'], $payload['updated_at']);
 
-        $response = Http::post('https://test-megaform-api.connextglobal.com/rag/IT%20Helpdesk%20Support', $payload);
+        $response = Http::post('https://test-megaform-api.connextglobal.com/rag/MegaTool%20Support', $payload);
 
         if ($response->successful()) {
-            // Delete draft on success
             ChatDraft::where('chat_id', $this->chatId)->where('project', $project)->delete();
 
             $data = $response->json();

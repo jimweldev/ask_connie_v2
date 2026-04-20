@@ -334,7 +334,7 @@ const ChatPage = () => {
                 history.map(chat => (
                   <div
                     key={chat.id}
-                    className={`group relative w-full rounded-lg transition-all duration-200 hover:scale-[1.02] hover:bg-accent active:scale-[0.98] ${
+                    className={`group relative w-full rounded-lg ${
                       chatId === chat.id ? 'bg-accent' : ''
                     }`}
                   >
@@ -348,7 +348,7 @@ const ChatPage = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute top-1/2 right-2 h-8 w-8 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                      className="absolute top-1/2 right-2 h-8 w-8 -translate-y-1/2 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
                       onClick={e => handleDeleteChatClick(chat, e)}
                       disabled={_setDeletingChatId === chat.id || isLoadingChat}
                     >
@@ -376,7 +376,7 @@ const ChatPage = () => {
                 </div>
               </div>
             ) : messages.length === 0 ? (
-              <div className="mt-20 flex animate-in flex-col items-center text-center duration-500 fade-in slide-in-from-bottom-4">
+              <div className="mt-20 flex flex-col items-center text-center">
                 <h1 className="mb-8 text-4xl font-medium tracking-tight">
                   Good morning, User.
                 </h1>
@@ -388,12 +388,9 @@ const ChatPage = () => {
                     'Brainstorm ideas',
                   ].map((item, index) => (
                     <button
-                      key={item}
+                      key={index}
                       onClick={() => sendMessage(item)}
-                      className="flex items-center rounded-xl border bg-card p-4 text-sm transition-all duration-200 hover:scale-[1.02] hover:border-muted-foreground hover:bg-accent active:scale-[0.98]"
-                      style={{
-                        animationDelay: `${index * 100}ms`,
-                      }}
+                      className="flex items-center rounded-xl border bg-card p-4 text-sm hover:border-muted-foreground hover:bg-accent"
                     >
                       {item}
                     </button>
@@ -406,28 +403,21 @@ const ChatPage = () => {
                   <div
                     key={index}
                     className={cn(
-                      'flex animate-in flex-col gap-3 duration-300 fade-in slide-in-from-bottom-2',
+                      'flex flex-col gap-3',
                       msg.role === 'user' ? 'items-end' : 'items-start',
                     )}
-                    style={{
-                      animationDelay: `${index * 50}ms`,
-                    }}
                   >
                     <div
                       className={cn(
-                        'max-w-[85%] px-1 text-base leading-relaxed transition-all duration-200',
+                        'max-w-[85%] px-1 text-base leading-relaxed',
                         msg.role === 'user'
-                          ? 'rounded-2xl bg-muted px-5 py-3 hover:shadow-sm'
+                          ? 'rounded-2xl bg-muted px-5 py-3'
                           : 'w-full',
                       )}
                     >
                       {msg.role === 'assistant' && (
                         <div className="mb-2 flex items-center gap-2 font-medium text-muted-foreground">
-                          <Bot
-                            size={16}
-                            className="animate-in duration-300 fade-in"
-                          />{' '}
-                          Connie
+                          <Bot size={16} /> Connie
                         </div>
                       )}
                       {/* FIX: Ensure content is always a string */}
@@ -443,13 +433,13 @@ const ChatPage = () => {
                     {/* Suggested Actions */}
                     {msg.suggestedActions &&
                       msg.suggestedActions.length > 0 && (
-                        <div className="flex animate-in flex-wrap gap-2 duration-300 fade-in slide-in-from-bottom-2">
+                        <div className="flex flex-wrap gap-2">
                           {msg.suggestedActions.map(action => (
                             <Button
                               key={action}
                               variant="outline"
                               size="sm"
-                              className="rounded-full text-xs transition-all duration-200 hover:scale-105 active:scale-95"
+                              className="rounded-full text-xs"
                               onClick={() => sendMessage(action)}
                             >
                               {action}
@@ -461,7 +451,7 @@ const ChatPage = () => {
                 ))}
 
                 {isSending && (
-                  <div className="flex animate-in items-center gap-3 text-muted-foreground duration-300 fade-in">
+                  <div className="flex items-center gap-3 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span className="text-sm italic">Thinking...</span>
                   </div>
@@ -474,13 +464,13 @@ const ChatPage = () => {
       </div>
 
       {/* Input Area */}
-      <div className="border-t p-4 transition-all duration-300">
+      <div className="border-t p-4">
         <div className="mx-auto max-w-3xl">
-          <div className="relative flex items-end gap-2 rounded-2xl border p-2 shadow-sm transition-all duration-200 focus-within:border-primary focus-within:shadow-md">
+          <div className="relative flex items-end gap-2 rounded-2xl border p-2 shadow-sm focus-within:border-primary focus-within:shadow-md">
             <Button
               size="icon"
               variant="ghost"
-              className="h-10 w-10 shrink-0 text-muted-foreground transition-all duration-200 hover:scale-105 hover:text-foreground active:scale-95"
+              className="h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground"
             >
               <Paperclip size={20} />
             </Button>
@@ -491,7 +481,7 @@ const ChatPage = () => {
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask Connie..."
-              className="min-h-[40px] w-full resize-none border-0 bg-transparent p-0 py-2.5 shadow-none transition-all duration-200 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="min-h-[40px] w-full resize-none border-0 bg-transparent p-0 py-2.5 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               style={{
                 overflow: 'hidden',
                 maxHeight: '200px',
@@ -502,16 +492,16 @@ const ChatPage = () => {
               disabled={isSending || !input.trim() || isLoadingChat}
               onClick={() => sendMessage(input)}
               className={cn(
-                'h-10 w-10 shrink-0 rounded-xl transition-all duration-200',
+                'h-10 w-10 shrink-0 rounded-xl',
                 input.trim() && !isSending && !isLoadingChat
-                  ? 'bg-primary text-primary-foreground hover:scale-105 hover:bg-primary/90 active:scale-95'
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                   : 'bg-muted text-muted-foreground',
               )}
             >
               <ArrowUp size={20} />
             </Button>
           </div>
-          <p className="mt-2 text-center text-xs text-muted-foreground transition-all duration-200">
+          <p className="mt-2 text-center text-xs text-muted-foreground">
             Connie can make mistakes. Please check important info.
           </p>
         </div>

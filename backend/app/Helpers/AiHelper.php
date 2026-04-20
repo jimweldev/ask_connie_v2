@@ -16,13 +16,15 @@ class AiHelper {
     }
 
     public static function generateTitle($text) {
-        $title = agent(instructions: 'You are a professional editor. Summarize the user message into a concise, title-case headline. Do not use quotes, punctuation at the end, or preamble. Limit to 3-5 words.')
-                ->prompt(
-                    'Create a title for this conversation: ' . $text,
-                    provider: Lab::Gemini,
-                    model: 'gemini-2.5-flash-lite',
-                );
+        $response = agent(instructions: 'You are a professional editor. Summarize the user message into a concise, title-case headline. Do not use quotes, punctuation at the end, or preamble. Limit to 3-5 words.')
+            ->prompt(
+                'Create a title for this conversation: ' . $text,
+                provider: Lab::Gemini,
+                model: 'gemini-2.5-flash-lite',
+            );
 
+        $title = $response->text ?? 'New Conversation';
+        
         return $title;
     }
 }

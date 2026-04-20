@@ -23,6 +23,8 @@ class ChatController extends Controller {
 
         $externalUserId = $externalUser->id;
 
+        $title = null;
+
         if (!$chatId) {
             $title = AiHelper::generateTitle($message);
 
@@ -86,6 +88,7 @@ class ChatController extends Controller {
         return response()->json([
             'response' => $text,
             'chat_id' => $chatId,
+            'title' => $title,
             'suggested_actions' => $suggestedActions,
         ], 200);
     }

@@ -79,6 +79,7 @@ class ChatController extends Controller {
                 'external_user_id' => $externalUserId,
                 'role' => 'assistant',
                 'content' => $text,
+                'suggested_actions' => $suggestedActions,
             ]);
         }
 
@@ -151,6 +152,7 @@ class ChatController extends Controller {
                 return [
                     'role'    => $msg->role,
                     'content' => $content,
+                    'suggested_actions' => $msg->suggested_actions ?? [],
                 ];
             });
 

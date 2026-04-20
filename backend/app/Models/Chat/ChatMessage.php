@@ -15,12 +15,12 @@ class ChatMessage extends Model {
         'chat_id',
         'role',
         'content',
+        'suggested_actions',
         'external_user_id',
     ];
 
     protected $casts = [
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'suggested_actions' => 'array',
     ];
 
     public function chat(): BelongsTo {

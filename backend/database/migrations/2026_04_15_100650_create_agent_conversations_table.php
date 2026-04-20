@@ -24,6 +24,7 @@ return new class extends AiMigration {
             $table->foreignId('external_user_id')->constrained('external_users')->cascadeOnDelete();
             $table->string('role');
             $table->text('content');
+            $table->json('suggested_actions')->nullable();
             $table->timestamps();
         });
 

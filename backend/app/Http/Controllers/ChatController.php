@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Ai\Agents\AskConnieAgent;
+use App\Helpers\AiHelper;
 use App\Models\Chat\Chat;
 use App\Models\Chat\ChatMessage;
 use App\Models\External\ExternalUser;
@@ -23,9 +24,12 @@ class ChatController extends Controller {
         $externalUserId = $externalUser->id;
 
         if (!$chatId) {
+            $title = AiHelper::generateTitle($message);
+
             $chat = Chat::create([
                 'external_user_id' => $externalUserId,
                 'app_source' => $appSource,
+                'title' => $title,
             ]);
 
             $chatId = $chat->id;
@@ -83,6 +87,140 @@ class ChatController extends Controller {
             'response' => $text,
             'chat_id' => $chatId,
             'suggested_actions' => $suggestedActions,
+        ], 200);
+    }
+
+    public function history(Request $request) {
+        $externalUserId = $request->input('external_user_id', '1');
+        $appSource = $request->input('app_source', 'default');
+
+        $externalUser = ExternalUser::firstWhere([
+            'external_user_id' => $externalUserId,
+            'app_source' => $appSource,
+        ]);
+
+        if (!$externalUser) {
+            return response()->json(['chats' => []], 200);
+        }
+
+        $chats = Chat::where('external_user_id', $externalUser->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($chat) {
+                return [
+                    'id' => $chat->id,
+                    'title' => $chat->title ?: 'New Chat',
+                    'created_at' => $chat->created_at,
+                    'updated_at' => $chat->updated_at,
+                ];
+            });
+
+        return response()->json(['chats' => $chats], 200);
+    }
+
+    public function messages(Request $request, int $chatId) {
+        $externalUserId = $request->input('external_user_id', '1');
+        $appSource = $request->input('app_source', 'default');
+
+        $externalUser = ExternalUser::firstWhere([
+            'external_user_id' => $externalUserId,
+            'app_source' => $appSource,
+        ]);
+
+        if (!$externalUser) {
+            return response()->json(['messages' => []], 200);
+        }
+
+        $chat = Chat::where('id', $chatId)
+            ->where('external_user_id', $externalUser->id)
+            ->firstOrFail();
+
+        $messages = ChatMessage::where('chat_id', $chatId)
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(function($msg) {
+                // FIX: Ensure content is always a string
+                $content = $msg->content;
+                if (is_array($content) || is_object($content)) {
+                    $content = json_encode($content);
+                }
+                
+                return [
+                    'role'    => $msg->role,
+                    'content' => $content,
+                ];
+            });
+
+        return response()->json([
+            'chat_id'  => $chatId,
+            'messages' => $messages,
+        ]);
+    }
+
+    public function delete(Request $request, int $chatId) {
+        $externalUserId = $request->input('external_user_id', '1');
+        $appSource = $request->input('app_source', 'default');
+
+        $externalUser = ExternalUser::firstWhere([
+            'external_user_id' => $externalUserId,
+            'app_source' => $appSource,
+        ]);
+
+        if (!$externalUser) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $chat = Chat::where('id', $chatId)
+            ->where('external_user_id', $externalUser->id)
+            ->first();
+
+        if (!$chat) {
+            return response()->json(['message' => 'Chat not found'], 404);
+        }
+
+        // Delete all messages first (foreign key constraint)
+        ChatMessage::where('chat_id', $chatId)->delete();
+        
+        // Then delete the chat
+        $chat->delete();
+
+        return response()->json(['message' => 'Chat deleted successfully'], 200);
+    }
+
+    /**
+     * Delete all chats for a user
+     */
+    public function deleteAll(Request $request) {
+        $externalUserId = $request->input('external_user_id', '1');
+        $appSource = $request->input('app_source', 'default');
+
+        $externalUser = ExternalUser::firstWhere([
+            'external_user_id' => $externalUserId,
+            'app_source' => $appSource,
+        ]);
+
+        if (!$externalUser) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        // Get all chat IDs for this user
+        $chatIds = Chat::where('external_user_id', $externalUser->id)
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($chatIds)) {
+            return response()->json(['message' => 'No chats found to delete'], 200);
+        }
+
+        // Delete all messages for these chats
+        ChatMessage::whereIn('chat_id', $chatIds)->delete();
+        
+        // Delete all chats
+        $deletedCount = Chat::where('external_user_id', $externalUser->id)->delete();
+
+        return response()->json([
+            'message' => 'All chats deleted successfully',
+            'deleted_count' => $deletedCount
         ], 200);
     }
 

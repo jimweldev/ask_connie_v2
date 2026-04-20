@@ -42,4 +42,10 @@ Route::middleware('jwt.auth')->group(function () {
 
     // Chat endpoints
     Route::post('/chat', [ChatController::class, 'chat']);
+    Route::get('/chat/history', [ChatController::class, 'history']);
+    Route::get('/chat/{chatId}/messages', [ChatController::class, 'messages']);
+    
+    // IMPORTANT: Delete all MUST come before the individual delete route
+    Route::delete('/chat/delete-all', [ChatController::class, 'deleteAll']);
+    Route::delete('/chat/{chatId}', [ChatController::class, 'delete']);
 });

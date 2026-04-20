@@ -120,6 +120,15 @@ class FacilitiesAndLogisticsSupportTool implements Tool {
             ]);
         }
 
+        // Guard: if confirmed=true but there was no existing draft, refuse to submit
+        if (!$draftRecord) {
+            return json_encode([
+                'status' => 'ERROR',
+                'project' => $project,
+                'message' => 'No active draft found. Please start a new ticket.',
+            ]);
+        }
+
         // Submit to external API
         $payload = $merged;
         unset($payload['confirmed'], $payload['id'], $payload['created_at'], $payload['updated_at']);

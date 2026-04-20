@@ -8,6 +8,7 @@ use App\Http\Controllers\Select\SelectController;
 use App\Http\Controllers\System\SystemDropdownController;
 use App\Http\Controllers\System\SystemDropdownModuleController;
 use App\Http\Controllers\System\SystemSettingController;
+use App\Http\Controllers\System\SystemUserController;
 use App\Http\Controllers\User\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,6 +17,9 @@ Route::post('/auth/login', [AuthController::class, 'loginWithPassword']);
 
 Route::middleware('jwt.auth')->group(function () {
     Route::resource('/example/tasks', ExampleTaskController::class);
+    
+    // System Users
+    Route::resource('/system/users', SystemUserController::class);
 
     // System Settings
     Route::resource('/system/settings', SystemSettingController::class);

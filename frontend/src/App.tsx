@@ -3,6 +3,7 @@ import SystemDropdownModulesTab from './01_pages/private/admin/system/system-dro
 import SystemDropdownsTab from './01_pages/private/admin/system/system-dropdowns/_tabs/system-dropdowns/system-dropdowns-tab';
 import SystemDropdownsPage from './01_pages/private/admin/system/system-dropdowns/system-dropdowns-page';
 import SystemSettingsPage from './01_pages/private/admin/system/system-settings/system-settings-page';
+import SystemUsersPage from './01_pages/private/admin/system/system-users/system-users-page';
 import ActiveUsersTab from './01_pages/private/admin/users/active-users/active-users-tab';
 import ArchivedUsersTab from './01_pages/private/admin/users/archived-users/archived-users-tab';
 import UsersPage from './01_pages/private/admin/users/users-page';
@@ -130,6 +131,10 @@ const App = () => {
                           element: <SystemDropdownModulesTab />,
                         },
                       ],
+                    },
+                    {
+                      path: 'users',
+                      element: <SystemUsersPage />,
                     },
                   ],
                 },

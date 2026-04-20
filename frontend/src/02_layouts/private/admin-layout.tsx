@@ -1,4 +1,10 @@
-import { FaCaretDown, FaChartArea, FaGears, FaUsers } from 'react-icons/fa6';
+import {
+  FaCaretDown,
+  FaChartArea,
+  FaGears,
+  FaUsers,
+  FaUsersBetweenLines,
+} from 'react-icons/fa6';
 import { Outlet } from 'react-router';
 import type { SidebarGroup } from '@/03_templates/main/_components/main-template-sidebar';
 import MainTemplate from '@/03_templates/main/main-template';
@@ -38,6 +44,11 @@ const AdminLayout = () => {
           label: 'System Dropdowns',
           to: '/admin/system/dropdowns',
           icon: FaCaretDown,
+        },
+        {
+          label: 'System Users',
+          to: '/admin/system/users',
+          icon: FaUsersBetweenLines,
         },
       ],
     },

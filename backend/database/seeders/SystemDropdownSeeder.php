@@ -51,6 +51,76 @@ class SystemDropdownSeeder extends Seeder {
                     'properties' => $dropdown['properties'],
                 ]);
             }
+
+            // create `Company` module
+            $module = SystemDropdownModule::create([
+                'label' => 'Company',
+            ]);
+
+            // create `Location` module type
+            $moduleType = SystemDropdownModuleType::create([
+                'label' => 'Location',
+                'system_dropdown_module_id' => $module->id,
+            ]);
+
+            $dropdowns = [
+                ['label' => 'Philippines'],
+                ['label' => 'Colombia'],
+                ['label' => 'Hawaii'],
+                ['label' => 'India'],
+            ];
+
+            // create dropdowns
+            foreach ($dropdowns as $dropdown) {
+                SystemDropdown::create([
+                    'module' => $module->label,
+                    'type' => $moduleType->label,
+                    'label' => $dropdown['label'],
+                    'order' => 1,
+                ]);
+            }
+
+            // create `Position` module type
+            $moduleType = SystemDropdownModuleType::create([
+                'label' => 'Position',
+                'system_dropdown_module_id' => $module->id,
+            ]);
+
+            $dropdowns = [
+                ['label' => 'Manager'],
+                ['label' => 'Supervisor'],
+            ];
+
+            // create dropdowns
+            foreach ($dropdowns as $dropdown) {
+                SystemDropdown::create([
+                    'module' => $module->label,
+                    'type' => $moduleType->label,
+                    'label' => $dropdown['label'],
+                    'order' => 1,
+                ]);
+            }
+
+            // create `Website` module type
+            $moduleType = SystemDropdownModuleType::create([
+                'label' => 'Website',
+                'system_dropdown_module_id' => $module->id,
+            ]);
+
+            $dropdowns = [
+                ['label' => 'MegaTool'],
+                ['label' => 'Community of Talent'],
+            ];
+
+            // create dropdowns
+            foreach ($dropdowns as $dropdown) {
+                SystemDropdown::create([
+                    'module' => $module->label,
+                    'type' => $moduleType->label,
+                    'label' => $dropdown['label'],
+                    'order' => 1,
+                ]);
+            }
         } catch (\Throwable $th) {
             // throw $th;
             $logger->error($th->getMessage());

@@ -8,7 +8,8 @@ class RagChunker {
         $text = preg_replace('/\s+/', ' ', $text);
 
         // Split by sentences (better than words)
-        $sentences = preg_split('/(?<=[.?!])\s+/', $text);
+        $sentences = preg_split('/(?<=[.?!]["\']?)\s+(?=[A-Z])/', $text);
+        $sentences = array_filter($sentences, fn($s) => trim($s) !== '');
 
         $chunks = [];
         $currentChunk = [];
@@ -18,7 +19,7 @@ class RagChunker {
             $sentenceLength = str_word_count($sentence);
 
             if ($currentLength + $sentenceLength > $chunkSize) {
-                $chunks[] = implode(' ', $currentChunk);
+                $chunks[] = trim(implode(' ', $currentChunk));
 
                 // overlap (take last sentences)
                 $overlapChunk = [];

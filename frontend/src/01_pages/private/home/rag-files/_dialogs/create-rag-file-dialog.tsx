@@ -3,8 +3,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import type { ReactSelectOption } from '@/04_types/_common/react-select-option';
 import { mainInstance } from '@/07_instances/main-instance';
 import FileDropzone from '@/components/dropzone/file-dropzone';
+import SystemDropdownSelect from '@/components/react-select/system-dropdown-select';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -24,11 +26,17 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { handleRejectedFiles } from '@/lib/react-dropzone/handle-rejected-files';
-import { createReactDropzoneSchema } from '@/lib/zod/zod-helpers';
+import {
+  createReactDropzoneSchema,
+  createReactSelectSchema,
+} from '@/lib/zod/zod-helpers';
 
 // Form validation schema
 const FormSchema = z.object({
   title: z.string().min(1, { message: 'Required' }),
+  allowed_locations: z.array(createReactSelectSchema()).optional(),
+  allowed_websites: z.array(createReactSelectSchema()).optional(),
+  allowed_positions: z.array(createReactSelectSchema()).optional(),
   file: createReactDropzoneSchema(),
 });
 
@@ -48,6 +56,9 @@ const CreateRagFileDialog = ({
     resolver: zodResolver(FormSchema),
     defaultValues: {
       title: '',
+      allowed_locations: [],
+      allowed_websites: [],
+      allowed_positions: [],
       file: undefined,
     },
   });
@@ -55,8 +66,21 @@ const CreateRagFileDialog = ({
   const [isLoadingCreateItem, setIsLoadingCreateItem] = useState(false);
 
   const onSubmit = (data: z.infer<typeof FormSchema>) => {
+    const allowedLocations =
+      data.allowed_locations?.map((l: ReactSelectOption) => l.label) || [];
+    const allowedPositions =
+      data.allowed_positions?.map((p: ReactSelectOption) => p.label) || [];
+    const allowedWebsites =
+      data.allowed_websites?.map((w: ReactSelectOption) => w.label) || [];
+
     const formData = new FormData();
+
     formData.append('title', data.title);
+
+    formData.append('allowed_locations', JSON.stringify(allowedLocations));
+    formData.append('allowed_positions', JSON.stringify(allowedPositions));
+    formData.append('allowed_websites', JSON.stringify(allowedWebsites));
+
     if (data.file) {
       formData.append('file', data.file);
     }
@@ -100,6 +124,69 @@ const CreateRagFileDialog = ({
                       <FormLabel>Title</FormLabel>
                       <FormControl>
                         <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="allowed_locations"
+                  render={({ field, fieldState }) => (
+                    <FormItem className="col-span-12">
+                      <FormLabel>Locations</FormLabel>
+                      <FormControl>
+                        <SystemDropdownSelect
+                          className={`${fieldState.invalid ? 'invalid' : ''}`}
+                          module="company"
+                          type="location"
+                          placeholder="Select location"
+                          value={field.value}
+                          onChange={field.onChange}
+                          isMulti
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="allowed_websites"
+                  render={({ field, fieldState }) => (
+                    <FormItem className="col-span-12">
+                      <FormLabel>Websites</FormLabel>
+                      <FormControl>
+                        <SystemDropdownSelect
+                          className={`${fieldState.invalid ? 'invalid' : ''}`}
+                          module="company"
+                          type="website"
+                          placeholder="Select website"
+                          value={field.value}
+                          onChange={field.onChange}
+                          isMulti
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="allowed_positions"
+                  render={({ field, fieldState }) => (
+                    <FormItem className="col-span-12">
+                      <FormLabel>Positions</FormLabel>
+                      <FormControl>
+                        <SystemDropdownSelect
+                          className={`${fieldState.invalid ? 'invalid' : ''}`}
+                          module="company"
+                          type="position"
+                          placeholder="Select position"
+                          value={field.value}
+                          onChange={field.onChange}
+                          isMulti
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

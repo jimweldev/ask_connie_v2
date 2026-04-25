@@ -150,6 +150,7 @@ const ChatPage = () => {
       const res = await mainInstance.post<ChatResponse>('/chat', {
         message: messageText,
         external_user_id: '1',
+        website: 'CoT',
         chat_id: chatId,
       });
       const newChatId = res.data.chat_id;

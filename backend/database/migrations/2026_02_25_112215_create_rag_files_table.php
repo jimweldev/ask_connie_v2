@@ -16,6 +16,9 @@ return new class extends Migration {
             $table->id();
             $table->string('title');
             $table->string('file_path');
+            $table->json('allowed_locations')->nullable();  // null = all locations
+            $table->json('allowed_websites')->nullable();   // null = all websites
+            $table->json('allowed_positions')->nullable();  // null = all positions
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();
         });

@@ -11,6 +11,12 @@ class RagFile extends Model {
         'updated_at',
     ];
 
+    protected $casts = [
+        'allowed_locations' => 'array',
+        'allowed_websites'  => 'array',
+        'allowed_positions' => 'array',
+    ];
+
     public function ragFileChunks() {
         return $this->hasMany(RagFileChunk::class);
     }

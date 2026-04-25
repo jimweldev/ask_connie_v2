@@ -12,17 +12,21 @@ use Illuminate\Http\Request;
 class ChatController extends Controller {
     public function chat(Request $request) {
         $externalUserId = $request->input('external_user_id', '1');
-        $appSource = $request->input('app_source', 'default');
-        $chatId = $request->input('chat_id');
-        $message = $request->input('message');
+        $appSource      = $request->input('app_source', 'default');
+        $chatId         = $request->input('chat_id');
+        $message        = $request->input('message');
+
+        // RAG filters from payload — null means all allowed
+        $location = $request->input('location');
+        $website  = $request->input('website');
+        $position = $request->input('position');
 
         $externalUser = ExternalUser::firstOrCreate([
             'external_user_id' => $externalUserId,
-            'app_source' => $appSource,
+            'app_source'       => $appSource,
         ]);
 
         $externalUserId = $externalUser->id;
-
         $title = null;
 
         if (!$chatId) {
@@ -30,25 +34,24 @@ class ChatController extends Controller {
 
             $chat = Chat::create([
                 'external_user_id' => $externalUserId,
-                'app_source' => $appSource,
-                'title' => $title,
+                'app_source'       => $appSource,
+                'title'            => $title,
             ]);
 
             $chatId = $chat->id;
         }
 
         ChatMessage::create([
-            'chat_id' => $chatId,
+            'chat_id'          => $chatId,
             'external_user_id' => $externalUserId,
-            'role' => 'user',
-            'content' => $message,
+            'role'             => 'user',
+            'content'          => $message,
         ]);
 
-        // Store user info in session for tools to access
         session(['external_user_id' => $externalUserId]);
-        session(['external_user' => $externalUser->toArray()]);
+        session(['external_user'    => $externalUser->toArray()]);
 
-        $agent = AskConnieAgent::make($externalUser, $chatId);
+        $agent = AskConnieAgent::make($externalUser, $chatId, $location, $website, $position);
 
         $response = $agent->prompt($message);
 

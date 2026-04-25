@@ -10,6 +10,12 @@ use Laravel\Ai\Tools\Request;
 use Stringable;
 
 class KnowledgeBaseTool implements Tool {
+    public function __construct(
+        private ?string $location = null,
+        private ?string $website  = null,
+        private ?string $position = null,
+    ) {}
+
     /**
      * Get the description of the tool's purpose.
      */
@@ -28,57 +34,65 @@ class KnowledgeBaseTool implements Tool {
         }
 
         $queryVector = AiHelper::generateEmbeddings($query);
-        
+
         if (empty($queryVector)) {
             return 'Could not generate embeddings for the query.';
         }
 
-        // STEP 1: get candidates via vector search ONLY
         $candidates = RagFileChunk::query()
             ->whereNotNull('embedding')
             ->whereVectorSimilarTo('embedding', $queryVector, 0.3)
             ->with('ragFile')
-            ->limit(20) // get more for reranking
-            ->get();
+            ->limit(20)
+            ->get()
+            ->filter(function ($chunk) {
+                $file = $chunk->ragFile;
+
+                // allowed_locations: null/empty = all allowed
+                if (!empty($file->allowed_locations)) {
+                    if (!in_array($this->location, $file->allowed_locations)) {
+                        return false;
+                    }
+                }
+
+                if (!empty($file->allowed_websites)) {
+                    if (!in_array($this->website, $file->allowed_websites)) {
+                        return false;
+                    }
+                }
+
+                if (!empty($file->allowed_positions)) {
+                    if (!in_array($this->position, $file->allowed_positions)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
 
         if ($candidates->isEmpty()) {
             return 'No relevant information found in the knowledge base.';
         }
 
-        // STEP 2: simple reranking (lexical boost)
         $queryTerms = explode(' ', strtolower($query));
 
-        $scored = $candidates->map(function ($chunk) use ($queryTerms) {
-            $content = strtolower($chunk->content);
-
+        $topChunks = $candidates->map(function ($chunk) use ($queryTerms) {
+            $content      = strtolower($chunk->content);
             $keywordScore = 0;
             foreach ($queryTerms as $term) {
                 if (str_contains($content, $term)) {
                     $keywordScore++;
                 }
             }
+            return ['chunk' => $chunk, 'score' => $keywordScore];
+        })
+        ->sortByDesc('score')
+        ->take(5)
+        ->pluck('chunk');
 
-            return [
-                'chunk' => $chunk,
-                'score' => $keywordScore,
-            ];
-        });
-
-        // STEP 3: sort by combined score
-        $topChunks = $scored
-            ->sortByDesc('score')
-            ->take(5)
-            ->pluck('chunk');
-
-        // STEP 4: build clean context
         $context = "Knowledge Base Results:\n\n";
-
         foreach ($topChunks as $chunk) {
-            $context .= sprintf(
-                "[%s]\n%s\n\n",
-                $chunk->ragFile->title,
-                $chunk->content
-            );
+            $context .= sprintf("[%s]\n%s\n\n", $chunk->ragFile->title, $chunk->content);
         }
 
         return $context;

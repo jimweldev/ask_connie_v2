@@ -16,6 +16,7 @@ use App\Models\Rag\RagFile;
 use App\Models\Rag\RagFileChunk;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class RagFileController extends Controller {
     private $logger;
@@ -97,6 +98,14 @@ class RagFileController extends Controller {
                 'file_path' => $filePath,
             ]);
 
+            $allowedLocations = json_decode($request->allowed_locations, true);
+            $allowedPositions = json_decode($request->allowed_positions, true);
+            $allowedWebsites = json_decode($request->allowed_websites, true);
+
+            $request['allowed_locations'] = empty($allowedLocations) ? null : $allowedLocations;
+            $request['allowed_positions'] = empty($allowedPositions) ? null : $allowedPositions;
+            $request['allowed_websites'] = empty($allowedWebsites) ? null : $allowedWebsites;
+
             $record = RagFile::create($request->all());
 
             $extractedText = StorageHelper::extractFileContent($record->file_path);
@@ -106,14 +115,19 @@ class RagFileController extends Controller {
             $createdChunkIds = [];
 
             foreach ($chunks as $index => $chunkContent) {
+                Log::info($chunkContent);
+
                 $chunk = RagFileChunk::create([
                     'rag_file_id' => $record->id,
                     'chunk_index' => $index,
-                    'content' => $chunkContent,
+                    'content'     => $chunkContent,
                     'token_count' => str_word_count($chunkContent),
-                    'meta' => json_encode([
-                        'source' => $record->title,
-                        'chunk' => $index,
+                    'meta'        => json_encode([
+                        'source'            => $record->title,
+                        'chunk'             => $index,
+                        'allowed_locations' => $record->allowed_locations,
+                        'allowed_websites'  => $record->allowed_websites,
+                        'allowed_positions' => $record->allowed_positions,
                     ]),
                 ]);
 
@@ -164,6 +178,14 @@ class RagFileController extends Controller {
                     'file_path' => $filePath,
                 ]);
             }
+
+            $allowedLocations = json_decode($request->allowed_locations, true);
+            $allowedPositions = json_decode($request->allowed_positions, true);
+            $allowedWebsites = json_decode($request->allowed_websites, true);
+
+            $request['allowed_locations'] = empty($allowedLocations) ? null : $allowedLocations;
+            $request['allowed_positions'] = empty($allowedPositions) ? null : $allowedPositions;
+            $request['allowed_websites'] = empty($allowedWebsites) ? null : $allowedWebsites;
 
             $record->update($request->all());
 
@@ -228,59 +250,5 @@ class RagFileController extends Controller {
                 'error' => $e->getMessage(),
             ], 400);
         }
-    }
-
-    /**
-     * Chat with the RAG knowledge base.
-     *
-     * @return JsonResponse
-     *
-     * @bodyParam message string required The user's message/question
-     * @bodyParam conversation_id string Optional conversation ID to continue an existing conversation
-     */
-    public function chat(Request $request) {
-        $externalUserId = $request->input('external_user_id', '1');
-        $appSource = $request->input('app_source', 'default');
-        $chatId = $request->input('chat_id');
-        $message = $request->input('message');
-
-        $externalUser = ExternalUser::firstOrCreate([
-            'external_user_id' => $externalUserId,
-            'app_source' => $appSource,
-        ]);
-
-        $externalUserId = $externalUser->id;
-
-        if (!$chatId) {
-            $chat = Chat::create([
-                'external_user_id' => $externalUserId,
-                'app_source' => $appSource,
-            ]);
-
-            $chatId = $chat->id;
-        }
-
-        ChatMessage::create([
-            'chat_id' => $chatId,
-            'external_user_id' => $externalUserId,
-            'role' => 'user',
-            'content' => $message,
-        ]);
-
-        $agent = AskConnieAgent::make($externalUser, $chatId);
-
-        $response = $agent->prompt($message);
-
-        ChatMessage::create([
-            'chat_id' => $chatId,
-            'external_user_id' => $externalUserId,
-            'role' => 'assistant',
-            'content' => $response->text,
-        ]);
-
-        return response()->json([
-            'response' => $response->text,
-            'chat_id' => $chatId,
-        ], 200);
     }
 }

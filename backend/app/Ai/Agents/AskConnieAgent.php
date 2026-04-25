@@ -26,7 +26,13 @@ use Stringable;
 class AskConnieAgent implements Agent, Conversational, HasTools {
     use Promptable;
 
-    public function __construct(public ExternalUser $externalUser, public ?int $chatId) {}
+    public function __construct(
+        public ExternalUser $externalUser,
+        public ?int $chatId,
+        public ?string $location = null,
+        public ?string $website  = null,
+        public ?string $position = null,
+    ) {}
 
     /**
      * Get the instructions that the agent should follow.
@@ -320,7 +326,7 @@ class AskConnieAgent implements Agent, Conversational, HasTools {
             new FacilitiesAndLogisticsSupportTool($this->chatId, $this->externalUser->id),
             new PayrollConcernTool($this->chatId, $this->externalUser->id),
             new PayrollDisputeTool($this->chatId, $this->externalUser->id),
-            new KnowledgeBaseTool(),
+            new KnowledgeBaseTool($this->location, $this->website, $this->position),
         ];
     }
 }
